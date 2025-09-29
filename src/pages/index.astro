@@ -10,7 +10,7 @@ import Layout from '../layouts/Layout.astro';
 
 const title = "Willi Geiger";
 const videoBg = { src: "/images/looping-smoke.mp4", type: "video/mp4" };
-const heading = "What is this?";
+const heading = "";
 const text = "\
 	I'm Willi Geiger, this is my place to experiment.\
 	Right now, you're looking at a particle system.\
@@ -50,25 +50,14 @@ const text = "\
 </style>
 
 <script>
-	import { ParseStatus } from "astro:schema";
-import { Point, ParticleSystem } from "../scripts/ParticleSystem";
+	import { Color, Point, ParticleSystem } from "../scripts/ParticleSystem";
 
-	//const canvas = document.querySelector('.interactive-canvas') as HTMLCanvasElement;
-
-	const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-	var tNow = performance.now();
-	var tPre = tNow;
-	requestAnimationFrame(animate);
-	var mxPrev = 0, myPrev = 0;
+	const canvas = document.querySelector('.interactive-canvas') as HTMLCanvasElement;
+	let tPre = performance.now();
+	var cxPrev = 0, cyPrev = 0;
 	var mouseActive = false;
 
-	function rotate(pos: Point, angle: number): Point {
-		return new Point(
-			Math.cos(angle) * pos.x + Math.sin(angle) * pos.y,
-		   -Math.sin(angle) * pos.x + Math.cos(angle) * pos.y);
-	}
-
-	var bubbles: ParticleSystem = new ParticleSystem();
+	let bubbles = new ParticleSystem();
 	bubbles.createGrid(50, 50);
 
 	// Designate some of the particles as "spinners," which add velocity
@@ -80,6 +69,12 @@ import { Point, ParticleSystem } from "../scripts/ParticleSystem";
 		spinners.push(b);
 		spinnerOmegas.push(2.25 * (Math.random() - 0.5));
 	}
+
+	// Explode on touch/button down
+	canvas.addEventListener("mousedown", mousedown);
+	//canvas.addEventListener("touchstart", touchstart);
+
+	requestAnimationFrame(animate);
 
 	function hsv2rgb(h: number, s: number, v: number): number[] {
 		while (h < 0) {
@@ -108,10 +103,11 @@ import { Point, ParticleSystem } from "../scripts/ParticleSystem";
   		return t * t * (3 - 2 * t);
 	}
 
-	// Explode on touch/button down
-	canvas.addEventListener("mousedown", mousedown);
-	//canvas.addEventListener("touchstart", touchstart);
-
+	function rotate(pos: Point, angle: number): Point {
+		return new Point(
+			Math.cos(angle) * pos.x + Math.sin(angle) * pos.y,
+		   -Math.sin(angle) * pos.x + Math.cos(angle) * pos.y);
+	}
 	function mousedown(e: MouseEvent) {
 		explode(e.clientX / canvas.clientWidth,
 			    e.clientY / canvas.clientHeight, 200);
@@ -142,10 +138,12 @@ import { Point, ParticleSystem } from "../scripts/ParticleSystem";
 		}
 	}
 
-	function animate() {
-		tNow = performance.now();
-		const dt = Math.min((tNow - tPre)/1000.0, 0.2);
-		tPre = tNow;
+	function animate(timestamp: number) {
+		requestAnimationFrame(animate);
+		const dt = Math.min((timestamp - tPre)/1000.0, 0.2);
+		tPre = timestamp;
+
+		console.log("FPS: " + 1.0 / dt);
 
 		const w = canvas.clientWidth;
 		const h = canvas.clientHeight;
@@ -161,29 +159,44 @@ import { Point, ParticleSystem } from "../scripts/ParticleSystem";
 		c.fillStyle = "#0001";
 		c.lineWidth = 0.5;
 
-		// Mouse/touch velocity
-		let mx = Number.parseFloat(
-			canvas.getAttribute("cursorX") || "0");
-		let my = Number.parseFloat(
-			canvas.getAttribute("cursorY") || "0");
-		let vx = mouseActive ? (mx - mxPrev) / w / dt : 0.0;
-		let vy = mouseActive ? (my - myPrev) / h / dt : 0.0;
-		mxPrev = mx;
-		myPrev = my;
-		mouseActive = (Number.parseInt(canvas.getAttribute(
-			"cursorActive") || "0") != 0);
+		// Field constants
+		const upwardSpeed = -0.15;
+		const waveMag = 0.017;
+		const waveFreq = 8.0;
+		const fluidDrag = 0.35;
 
+		// Reset acceleration
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			bubbles.acc[i].x = 0.0;
 			bubbles.acc[i].y = 0.0;
+		}
 
-			// Mouse drag
-			var dx = mx / w - bubbles.pos[i].x;
-			var dy = my / h - bubbles.pos[i].y;
+		// Apply force fields
+		const brownianX = 0.35;
+		const brownianY = 0.7;
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			bubbles.acc[i].x += brownianX * dt * (Math.random() - 0.5);
+			bubbles.acc[i].y += brownianY * dt * (Math.random() - 0.5);
+		}
+
+		// Apply mouse drag
+		let cx = Number.parseFloat(
+			canvas.getAttribute("cursorX") || "0");
+		let cy = Number.parseFloat(
+			canvas.getAttribute("cursorY") || "0");
+		let vx = mouseActive ? (cx - cxPrev) / w / dt : 0.0;
+		let vy = mouseActive ? (cy - cyPrev) / h / dt : 0.0;
+		cxPrev = cx;
+		cyPrev = cy;
+		mouseActive = (Number.parseInt(canvas.getAttribute(
+			"cursorActive") || "0") != 0);
+		const Cd = 1.0;
+		const falloff = 5.0;
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			let dx = cx / w - bubbles.pos[i].x;
+			let dy = cy / h - bubbles.pos[i].y;
 			if (dx >  0.5) dx -= 1.0;
 			if (dx < -0.5) dx += 1.0;
-			const Cd = 1.0;
-			const falloff = 5.0;
 			const d = Math.sqrt(dx * dx + dy * dy);
 			const k = Math.pow(1.0 - Cd / (falloff * d + 1.0), dt);
 			if (Math.abs(vx) > 0.0) {
@@ -192,42 +205,55 @@ import { Point, ParticleSystem } from "../scripts/ParticleSystem";
 			if (Math.abs(vy) > 0.0) {
 				bubbles.acc[i].y += (1.0 - k) * (vy - bubbles.vel[i].y);
 			}
+		}
 
-			// Velocity from spinners
-			var spinX = 0.0, spinY = 0.0;
-			for (var n = 0; n < numSpinners; n++) {
-				const dx = bubbles.pos[i].x - bubbles.pos[spinners[n]].x;
-				const dy = bubbles.pos[i].y - bubbles.pos[spinners[n]].y;
-				const d = Math.sqrt(dx * dx + dy * dy);
-				const pRot = rotate(new Point(dx, dy),
-				                    spinnerOmegas[n] / (2.0 * Math.PI));
-				spinX += (pRot.x - dx) / Math.max(d, 0.001);
-				spinY += (pRot.y - dy) / Math.max(d, 0.001);
+		// Fluid drag
+		let fluidVel = new Array<Point>(bubbles.pos.length);
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			fluidVel[i] = new Point(0.0, 0.0);
+		}
+
+		// Spinners
+		for (var n = 0; n < numSpinners; n++) {
+			for (var i = 0; i < bubbles.pos.length; i++) {
+				let dx = bubbles.pos[i].x - bubbles.pos[spinners[n]].x;
+				let dy = bubbles.pos[i].y - bubbles.pos[spinners[n]].y;
+				let d = Math.sqrt(dx * dx + dy * dy);
+				let pRot = rotate(new Point(dx, dy),
+				                  spinnerOmegas[n] / (2.0 * Math.PI));
+				fluidVel[i].x += (pRot.x - dx) / Math.max(d, 0.001);
+				fluidVel[i].y += (pRot.y - dy) / Math.max(d, 0.001);
 			}
+		}
 
-			// Fluid motion
-			const upwardSpeed = -0.15;
-			const waveMag = 0.017;
-			const waveFreq = 8.0;
-			const fluidDrag = 0.35;
-			const df = Math.pow(1.0 - fluidDrag, dt);
-			const fluidX = spinX +
-				waveMag * (Math.cos(waveFreq * bubbles.pos[i].y) - 1.0);
-			const fluidY = upwardSpeed + spinY;
-			bubbles.acc[i].x += (1.0 - df) * (fluidX - bubbles.vel[i].x);
-			bubbles.acc[i].y += (1.0 - df) * (fluidY - bubbles.vel[i].y);
+		// Upward motion
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			fluidVel[i].y +=  upwardSpeed;
+		}
 
-			const brownianX = 0.35;
-			const brownianY = 0.7;
-			bubbles.acc[i].x += brownianX * dt * (Math.random() - 0.5);
-			bubbles.acc[i].y += brownianY * dt * (Math.random() - 0.5);
+		// Horizontal oscillation
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			fluidVel[i].x += waveMag *
+				(Math.cos(waveFreq * bubbles.pos[i].y) - 1.0);
+		}
 
-			// Advect
+		// Apply combined fluid drag
+		let fd = Math.pow(1.0 - fluidDrag, dt);
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			bubbles.acc[i].x += (1.0 - fd) * (fluidVel[i].x - bubbles.vel[i].x);
+			bubbles.acc[i].y += (1.0 - fd) * (fluidVel[i].y - bubbles.vel[i].y);
+		}
+
+		// Apply acceleration
+		for (var i = 0; i < bubbles.pos.length; i++) {
 			bubbles.vel[i].x += bubbles.acc[i].x;
 			bubbles.vel[i].y += bubbles.acc[i].y;
-			bubbles.pos[i].x += dt * bubbles.vel[i].x;
-			bubbles.pos[i].y += dt * bubbles.vel[i].y;
+		}
 
+		bubbles.advect(dt);
+
+		// Handle edges
+		for (var i = 0; i < bubbles.pos.length; i++) {
 			// Handle particles going off screen
 			while (bubbles.pos[i].x < 0.0) {
 				bubbles.pos[i].x += 1.0;
@@ -241,30 +267,40 @@ import { Point, ParticleSystem } from "../scripts/ParticleSystem";
 			if (bubbles.pos[i].y > 1.03) {
 				bubbles.vel[i].y = -0.5 * Math.abs(bubbles.vel[i].y);
 			}
+		}
 
-			// Draw
-			const areaScale = 0.001 * Math.sqrt(w * w + h * h);
-			const px = bubbles.pos[i].x * w;
-			const py = bubbles.pos[i].y * h;
-			const hx = bubbles.vel[i].x;
-			const hy = bubbles.vel[i].y - upwardSpeed;
-			const hue = Math.atan2(hy, hx) / (2 * Math.PI) + 0.5;
-			const sat = Math.min(0.2 * Math.pow(hx * hx + hy * hy, 0.0), 1.0);
-			const val = 1.0;
-			const rgb = hsv2rgb(hue, sat, val);
-			const a = 0.75;
-			const fillDarker = 0.4;
-			c.strokeStyle = "rgba(" + rgb[0] + ", " + rgb[1] + ", " + rgb[2] +
-			                    ", " + a + ")";
-			c.fillStyle = "rgba(" + fillDarker * rgb[0] + ", " + fillDarker * rgb[1] +
-								", " + fillDarker * rgb[2] + ", " + 0.2 + ")";
+		// Set color according to relative velocity
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			let hx = bubbles.vel[i].x;
+			let hy = bubbles.vel[i].y - upwardSpeed;
+			let hue = Math.atan2(hy, hx) / (2 * Math.PI) + 0.5;
+			let sat = Math.min(0.2 * Math.pow(hx * hx + hy * hy, 0.0), 1.0);
+			let val = 1.0;
+			let rgb = hsv2rgb(hue, sat, val);
+			let a = 0.75;
+			bubbles.rgb[i] = new Color(rgb[0], rgb[1], rgb[2]);
+			bubbles.alpha[i] = 0.8;
+		}
+
+		// Draw
+		const areaScale = 0.001 * Math.sqrt(w * w + h * h);
+		const fillDarker = 0.4;
+		const fillTrans = 0.25;
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			let px = bubbles.pos[i].x * w;
+			let py = bubbles.pos[i].y * h;
+			let rgb = bubbles.rgb[i];
+			let alpha = bubbles.alpha[i];
+
+			c.strokeStyle = "rgba(" + rgb.r + ", " + rgb.g + ", " + rgb.g +
+			                    ", " + alpha + ")";
+			c.fillStyle = "rgba(" + fillDarker * rgb.r + ", " + fillDarker * rgb.g +
+								", " + fillDarker * rgb.b + ", " + fillTrans * alpha + ")";
 			c.beginPath();
 			c.moveTo(px + areaScale * bubbles.rad[i], py);
 			c.arc(px, py, areaScale * bubbles.rad[i], 0, 2.0 * Math.PI, false);
 			c.stroke();
 			c.fill();
 		}
-
-		requestAnimationFrame(animate);
 	}
 </script>
