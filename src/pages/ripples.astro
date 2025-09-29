@@ -1,0 +1,412 @@
+---
+import Layout from '../layouts/Layout.astro';
+import InteractiveCanvas from '../components/InteractiveCanvas.astro';
+---
+
+<Layout title="Smoky">
+	<main>
+		<div class="fullscreen-bg">
+		    <video
+		      class="video-fill"
+		      autoplay
+		      playsinline
+		      muted
+		      loop
+		    >
+		      <source src="/images/looping-ripples.mp4" type="video/mp4" />
+		    </video>
+		    <InteractiveCanvas id="overlay"></InteractiveCanvas>
+		  </div>
+	</main>
+</Layout>
+
+<style>
+	main {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		width: 100%;
+		height: 100%;
+		color: white;
+		font-size: 20px;
+		line-height: 1.6;
+	}
+	h1 {
+		font-size: 4rem;
+		font-weight: 700;
+		line-height: 1;
+		text-align: center;
+		margin-bottom: 1em;
+	}
+	.text-gradient {
+		background-image: var(--accent-gradient);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		background-size: 400%;
+		background-position: 0%;
+	}
+	.instructions {
+		margin-bottom: 2rem;
+		border: 1px solid rgba(var(--accent-light), 25%);
+		background: linear-gradient(rgba(var(--accent-dark), 66%), rgba(var(--accent-dark), 33%));
+		padding: 1.5rem;
+		border-radius: 8px;
+	}
+	.instructions code {
+		font-size: 0.8em;
+		font-weight: bold;
+		background: rgba(var(--accent-light), 12%);
+		color: rgb(var(--accent-light));
+		border-radius: 4px;
+		padding: 0.3em 0.4em;
+	}
+	.instructions strong {
+		color: rgb(var(--accent-light));
+	}
+	.link-card-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(24ch, 1fr));
+		gap: 2rem;
+		padding: 0;
+	}
+	.fullscreen-bg {
+		background-color: #808080;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: 100%;
+		overflow:hidden;
+	}
+	.video-fill {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.overlay {
+		position: absolute;
+		display: flex;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		width: 100%;
+		height: 100%;
+	}
+</style>
+
+<script>
+	import { ParticleSystem, Point } from "../scripts/ParticleSystem";
+
+	function hsv2rgb(h: number, s: number, v: number): number[] {
+		while (h < 0) {
+			h += 1;
+		}
+		h *= 6;
+		const i = Math.floor(h);
+  		const f = h - i;
+  		const p = v * (1 - s);
+  		const q = v * (1 - f * s);
+  		const t = v * (1 - (1 - f) * s);
+
+	  switch (i % 6) {
+	    case 0: return [v * 255, t * 255, p * 255];
+	    case 1: return [q * 255, v * 255, p * 255];
+	    case 2: return [p * 255, v * 255, t * 255];
+	    case 3: return [p * 255, q * 255, v * 255];
+	    case 4: return [t * 255, p * 255, v * 255];
+	    case 5: return [v * 255, p * 255, q * 255];
+	  }
+	  console.log("ERROR! h = " + h + ", i = " + i);
+	}
+
+	const canvas = document.getElementById("overlay") as HTMLCanvasElement;
+	var tNow: number = performance.now() / 1000.0;
+	var tPre: number = tNow;
+	var mxPrev: number = 0;
+	var myPrev: number = 0;
+	var iteration = 0;
+	var mouseActive = false;
+
+	const minPlasticity = 0.0;
+	const maxPlasticity = 1.0;
+	const plasticityDelta = -0.2;
+	var plasticity = maxPlasticity;
+
+	var bubbles: ParticleSystem = new ParticleSystem();
+	bubbles.createGrid(50, 50);
+
+	for (var i = 0; i < bubbles.pos.length; i++) {
+		initRadius(i);
+	}
+
+	requestAnimationFrame(animate);
+
+	function initRadius(i) {
+		bubbles.rad[i] = Math.pow(Math.random(), 3.0) * 4.0 + 3.0;
+	}
+
+	// Designate some of the particles as "pushers," which add velocity
+	const numPushers = 25;
+	var pushers: number[] = [];
+	var pusherForces: number[] = [];
+	for (var n = 0; n < numPushers; n++) {
+		const b = Math.round((bubbles.pos.length - 1) * Math.random());
+		pushers.push(b);
+		pusherForces.push(0.003 * (Math.random() + 1.0));
+	}
+
+	// Explode on touch/button down
+	canvas.addEventListener("mousedown", mousedown);
+	canvas.addEventListener("touchstart", touchstart);
+
+	function mousedown(e: MouseEvent) {
+		explode(e.clientX / canvas.clientWidth,
+			    e.clientY / canvas.clientHeight, 0.2);
+	}
+
+	function touchstart(e: TouchEvent) {
+		if (!e.touches[0]) {
+			return;
+		}
+		explode(e.touches[0].clientX / canvas.clientWidth,
+			    e.touches[0].clientY / canvas.clientHeight, 0.2);
+	}
+
+	function explode(x: number, y: number, force: number) {
+		plasticity = maxPlasticity;
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			const dx = bubbles.pos[i].x - x;
+			const dy = bubbles.pos[i].y - y;
+			const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.001);
+			bubbles.vel[i].x += force * dx / d;
+			bubbles.vel[i].y += force * dy / d;
+		}
+	}
+
+	const exploderBurstRadius = 100.0;
+	const exploderGrowthInit = 0.00003;
+	const exploderGrowthAcc = 0.000002;
+	const exploderHaloGrowth = 1.0;
+	var exploderGrowth = [];
+	var exploders = [];
+	var exploderHalos = [];
+	initExploders(1);
+
+	const wrapLeft = -0.05;
+	const wrapRight = -0.05;
+	const wrapTop = -0.05;
+	const wrapBottom = -0.05;
+
+	function wrapPoint(p: Point): Point {
+		var px = p.x;
+		var py = p.y;
+		while (px < wrapLeft) px += 1.0 - wrapLeft - wrapRight;
+		while (px > 1.0 - wrapRight) px -= 1.0 - wrapLeft - wrapRight;
+		while (py < wrapTop) py += 1.0 - wrapTop - wrapBottom;
+		while (py > 1.0 - wrapBottom) py -= 1.0 - wrapTop - wrapBottom;
+		return new Point(px, py);
+	}
+
+	function initExploders(numExploders) {
+		exploders = new Array(numExploders);
+		exploderGrowth = new Array(numExploders);
+		exploderHalos = new Array(numExploders);
+		for (var i = 0; i < numExploders; i++) {
+			setExploder(i);
+			exploderGrowth[i] = exploderGrowthInit;
+		}
+	}
+
+	function setExploder(i) {
+		exploders[i] = Math.round(bubbles.pos.length * Math.random());
+		exploderHalos[i] = bubbles.rad[exploders[i]];
+	}
+
+	function animate() {
+		const freezeTime = 0.0;
+		tNow = performance.now() / 1000.0;
+		const dt: number = Math.min(tNow - tPre, 0.2);
+		tPre = tNow;
+
+		const w = canvas.clientWidth;
+		const h = canvas.clientHeight;
+		const radScale = 0.002 * Math.sqrt(w * h);
+		canvas.width = w;
+		canvas.height = h;
+
+		const c = canvas.getContext('2d');
+		c.strokeStyle = "#0004";
+		c.fillStyle = "#fff2";
+		c.lineWidth = 1;
+
+		plasticity += dt * plasticityDelta;
+		plasticity = Math.min(Math.max(plasticity, minPlasticity), maxPlasticity);
+		const plasticBlend = 1.0 - Math.pow(1.0 - plasticity, dt);
+
+		const mx = Number.parseFloat(canvas.getAttribute("mouseX"));
+		const my = Number.parseFloat(canvas.getAttribute("mouseY"));
+		const vx = mouseActive ? (mx - mxPrev) / w / dt : 0.0;
+		const vy = mouseActive ? (my - myPrev) / h / dt : 0.0;
+		mxPrev = mx;
+		myPrev = my;
+		mouseActive =
+			(Number.parseInt(canvas.getAttribute("mouseActive")) != 0);
+
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			// Velocity from pushers
+			for (var n = 0; n < numPushers; n++) {
+				var dx = bubbles.pos[i].x - bubbles.pos[pushers[n]].x;
+				var dy = bubbles.pos[i].y - bubbles.pos[pushers[n]].y;
+				if (dx >  0.5) dx -= 1.0;
+				if (dx < -0.5) dx += 1.0;
+				if (dy >  0.5) dy -= 1.0;
+				if (dy < -0.5) dy += 1.0;
+				const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.001);
+				bubbles.vel[i].x += dt * pusherForces[n] * dx / (d * d);
+				bubbles.vel[i].y += dt * pusherForces[n] * dy / (d * d);
+			}
+
+			if (true) {
+				// Mouse drag
+				var dx = mx / w - bubbles.pos[i].x;
+				var dy = my / h - bubbles.pos[i].y;
+				if (dx >  0.5) dx -= 1.0;
+				if (dx < -0.5) dx += 1.0;
+				if (dy >  0.5) dy -= 1.0;
+				if (dy < -0.5) dy += 1.0;
+				const Cd = 1.0;
+				const falloff = 5.0;
+				const d = Math.sqrt(dx * dx + dy * dy);
+				const k = Math.pow(1.0 - Cd / (falloff * d + 1.0), dt);
+				if (Math.abs(vx) > 0.0) {
+					bubbles.vel[i].x = k * bubbles.vel[i].x + (1.0 - k) * vx;
+				}
+				if (Math.abs(vy) > 0.0) {
+					bubbles.vel[i].y = k * bubbles.vel[i].y + (1.0 - k) * vy;
+				}
+
+				// Plasiticity
+				if (bubbles.pos[i].x > 0 && bubbles.pos[i].x < 1.0 &&
+					bubbles.pos[i].y > 0 && bubbles.pos[i].y < 1.0) {
+					bubbles.rst[i].x += plasticBlend * (bubbles.pos[i].x - bubbles.rst[i].x);
+					bubbles.rst[i].y += plasticBlend * (bubbles.pos[i].y - bubbles.rst[i].y);
+				}
+
+				const spring = 1.0;
+				bubbles.vel[i].x += spring * dt * (bubbles.rst[i].x - bubbles.pos[i].x);
+				bubbles.vel[i].y += spring * dt * (bubbles.rst[i].y - bubbles.pos[i].y);
+
+				const brownian = 1.0 * 0.5;
+				bubbles.vel[i].x += brownian * dt * (Math.random() - 0.5);
+				bubbles.vel[i].y += brownian * dt * (Math.random() - 0.5);
+
+				var explosion = false;
+				for (var e = 0; e < exploders.length; e++) {
+					var exploder = exploders[e];
+					bubbles.rad[exploder] += exploderGrowth[e];
+					if (bubbles.rad[exploder] > exploderBurstRadius) {
+						explode(bubbles.pos[exploder].x,
+						        bubbles.pos[exploder].y, 0.5);
+						initRadius(exploder);
+						setExploder(e);
+						explosion = true;
+					}
+				}
+				if (explosion) {
+					for (var e = 0; e < exploders.length; e++) {
+						exploderGrowth[e] = exploderGrowthInit;
+						initRadius(exploders[e]);
+					}
+				}
+				if (mouseActive) {
+					for (var e = 0; e < exploders.length; e++) {
+						var exploder = exploders[e];
+						var pExploder = wrapPoint(bubbles.pos[exploder]);
+						var edx = mx / w - pExploder.x;
+						var edy = my / h - pExploder.y;
+						var ed = Math.sqrt(edx * edx + edy * edy);
+						if (ed < 0.0022 * bubbles.rad[exploder]) {
+							explode(bubbles.pos[exploder].x,
+							        bubbles.pos[exploder].y, 0.3);
+							initRadius(exploder);
+							setExploder(e);
+							exploderGrowth[e] += exploderGrowthAcc;
+						}
+					}
+				}
+			}
+
+			const damping = 0.5;
+			bubbles.vel[i].x *= Math.pow(1.0 - damping, dt);
+			bubbles.vel[i].y *= Math.pow(1.0 - damping, dt);
+
+			// Advect
+			bubbles.pos[i].x += dt * bubbles.vel[i].x;
+			bubbles.pos[i].y += dt * bubbles.vel[i].y;
+
+			// Wrap around screen size
+			while (bubbles.pos[i].x < -1.0) {
+				bubbles.pos[i].x += 1.0;
+			}
+			while (bubbles.pos[i].x > 2.0) {
+				bubbles.pos[i].x -= 1.0;
+			}
+			while (bubbles.pos[i].y < -1.0) {
+				bubbles.pos[i].y += 1.0;
+			}
+			while (bubbles.pos[i].y > 2.0) {
+				bubbles.pos[i].y -= 1.0;
+			}
+			var p: Point = wrapPoint(bubbles.pos[i]);
+			var px = w * p.x;
+			var py = h * p.y;
+
+			// Draw
+			const hue = Math.atan2(bubbles.vel[i].y,
+			                       bubbles.vel[i].x) / (2 * Math.PI) + 0.5;
+			const sat = Math.min(
+				0.5 * Math.pow(bubbles.vel[i].x * bubbles.vel[i].x +
+						       bubbles.vel[i].y * bubbles.vel[i].y, 0.1), 1.0);
+			const val = 1.0;
+			const rgb = hsv2rgb(hue, sat, val);
+			const a = 0.125;
+			c.fillStyle = "rgba(" + rgb[0] + ", " + rgb[1] + ", " + rgb[2] +
+			                    ", " + a + ")";
+			c.beginPath();
+			c.moveTo(px + radScale * bubbles.rad[i], py);
+			c.arc(px, py, radScale * bubbles.rad[i], 0, 2.0 * Math.PI, false);
+			c.stroke();
+			c.fill();
+		}
+
+		c.strokeStyle = "#fff4";
+		c.lineWidth = 1;
+		for (var e = 0; e < exploders.length; e++) {
+			var exploder = exploders[e];
+			var p: Point = wrapPoint(bubbles.pos[exploder]);
+			var px = w * p.x;
+			var py = h * p.y;
+			//exploderHalos[e] =
+			//	0.5 * (bubbles.rad[exploder] + exploderBurstRadius);
+			c.beginPath();
+			c.moveTo(px + radScale * exploderHalos[e], py);
+			c.arc(px, py, radScale * exploderHalos[e], 0, 2.0 * Math.PI, false);
+			c.stroke();
+			exploderHalos[e] += exploderHaloGrowth;
+			if (exploderHalos[e] > exploderBurstRadius) {
+				exploderHalos[e] = bubbles.rad[exploder];
+			}
+		}
+
+		if (tNow >= freezeTime && tNow - dt < freezeTime) {
+			for (var i = 0; i < bubbles.pos.length; i++) {
+				bubbles.rst[i].x = bubbles.pos[i].x;
+				bubbles.rst[i].y = bubbles.pos[i].y;
+			}
+		}
+
+		requestAnimationFrame(animate);
+	}
+</script>

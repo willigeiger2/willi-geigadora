@@ -1,0 +1,30 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	text: string;
+}
+
+const { text } = Astro.props;
+---
+
+<div>
+	<p>{text}</p>
+</div>
+
+<style>
+    div {
+        width: 90%;
+        background-color: rgba(0, 0, 0, 0.2);
+        padding: 0.01rem 1rem;
+        border-radius: 0.5rem;
+        border: 2px;
+        border-color: rgba(160, 160, 160, 0.7);
+        border-style: solid;
+        box-sizing: border-box; 
+        margin-top: 0;
+    }
+	p {
+		font-size: clamp(0.8rem, 2.25vw, min(6vh, 3rem));
+	}
+</style>

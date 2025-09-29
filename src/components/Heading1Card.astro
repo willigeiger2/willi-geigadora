@@ -1,0 +1,26 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	text: string;
+}
+
+const { text } = Astro.props;
+---
+
+<div>
+	<h1>{text}</h1>
+</div>
+
+<style>
+	h1 {
+		font-size: clamp(0.5rem, 10vw, min(10rem, 20vh));
+		padding: 0;
+		margin: 0;
+	}
+	div {
+		width: 100%;
+		margin-top: clamp(3rem, 15vh, 8rem);
+		margin-bottom: 0;
+	}
+</style>

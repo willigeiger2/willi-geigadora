@@ -1,0 +1,43 @@
+---
+import '../styles/global.css';
+
+interface Props {
+}
+
+
+---
+
+<div>
+	<a href="/">Home</a>
+	<a href="/content/bio">Bio</a>
+	<a href="/">Photography</a>
+	<a href="/">Experiments</a>
+</div>
+
+<style>
+    div {
+		position: fixed;
+        display: flex;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background-image: linear-gradient(to top, rgba(32, 32, 32, 0.2),
+            rgba(32, 32, 32, 1));
+        padding: 0.7rem 5vw;
+        border-bottom: 2px solid rgba(160, 160, 160, 0.7);
+        justify-content: space-between;
+        box-sizing: border-box; 
+        z-index: 100;
+    }
+	a {
+		font-size: clamp(1rem, 4vw, min(4vh, 1.3rem));
+        color: white;
+        text-decoration: none;
+        text-transform: uppercase;
+	}
+    a:hover {
+        text-shadow: 
+            0 0 0.2rem,
+            0 0 0.5rem
+    }
+</style>

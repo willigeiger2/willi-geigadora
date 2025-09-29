@@ -1,0 +1,77 @@
+---
+interface Props {
+	id: string;
+}
+
+const { id } = Astro.props;
+---
+
+<canvas id={id} class="interactive-canvas"></canvas>
+
+<style>
+	.interactive-canvas {
+		position: absolute;
+		display: flex;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		width: 100%;
+		height: 100%;
+	}
+</style>
+
+<script>
+	const canvas = document.querySelector('.interactive-canvas');
+
+	canvas.addEventListener("mouseenter", mouseenter);
+	canvas.addEventListener("mousemove", mousemove);
+	canvas.addEventListener("mouseleave", mouseleave);
+	canvas.addEventListener("touchstart", touchstart);
+	canvas.addEventListener("touchmove", touchmove);
+	canvas.addEventListener("touchend", touchend);
+	initializeCursor();
+
+	function initializeCursor() {
+		canvas.setAttribute("cursorX", "0.0");
+		canvas.setAttribute("cursorY", "0.0");
+		canvas.setAttribute("cursorActive", "0");
+	}
+
+	function updateCursor(x: number, y: number) {
+		canvas.setAttribute("cursorX", String(x));
+		canvas.setAttribute("cursorY", String(y));
+		canvas.setAttribute("cursorActive", "1");
+	}
+
+	function mouseenter(e: MouseEvent) {
+		updateCursor(e.clientX, e.clientY);
+	}
+
+	function mousemove(e: MouseEvent) {
+		updateCursor(e.clientX, e.clientY);
+	}
+
+	function mouseleave(e: MouseEvent) {
+		canvas.setAttribute("cursorActive", "0");
+	}
+
+	function touchstart(e: TouchEvent) {
+		if (!e.touches[0]) {
+			return;
+		}
+		updateCursor(e.touches[0].clientX, e.touches[0].clientY);
+	}
+
+	function touchmove(e: TouchEvent) {
+		if (!e.touches[0]) {
+			return;
+		}
+		updateCursor(e.touches[0].clientX, e.touches[0].clientY);
+		e.preventDefault();
+	}
+
+	function touchend(e: TouchEvent) {
+		canvas.setAttribute("cursorActive", "0");
+	}
+</script>
