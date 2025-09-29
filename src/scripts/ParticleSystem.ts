@@ -4,6 +4,15 @@ class Point {
 	public constructor(public x: number, public y: number) {}
 }
 
+interface FieldOutput {
+	field: Point[];
+	falloff: number[];
+}
+
+interface Field {
+	evaluate(points: Point[]) : FieldOutput;
+}
+
 class ParticleSystem {
 	pos: Point[] = [];
 	vel: Point[] = [];

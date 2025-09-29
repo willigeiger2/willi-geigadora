@@ -10,9 +10,8 @@ import Layout from '../layouts/Layout.astro';
 
 const title = "Willi Geiger";
 const videoBg = { src: "/images/looping-smoke.mp4", type: "video/mp4" };
-const heading = "Where are you?";
+const heading = "What is this?";
 const text = "\
-	Probably lost, I'm afraid.\
 	I'm Willi Geiger, this is my place to experiment.\
 	Right now, you're looking at a particle system.\
 	Try interacting with the screen.";
@@ -26,7 +25,7 @@ const text = "\
 		      	src={videoBg.src}
 				type=
 			></VideoFill>
-		    <PassiveOverlay>
+			<PassiveOverlay>
 				<Heading1Card text={heading}></Heading1Card>
 				<TextCard text={text}></TextCard>
 			</PassiveOverlay>
@@ -51,7 +50,8 @@ const text = "\
 </style>
 
 <script>
-	import { Point, ParticleSystem } from "../scripts/ParticleSystem";
+	import { ParseStatus } from "astro:schema";
+import { Point, ParticleSystem } from "../scripts/ParticleSystem";
 
 	//const canvas = document.querySelector('.interactive-canvas') as HTMLCanvasElement;
 
@@ -100,9 +100,10 @@ const text = "\
 	    case 4: return [t * 255, p * 255, v * 255];
 	    case 5: return [v * 255, p * 255, q * 255];
 	  }
+	  return [0, 0, 0];
 	}
 
-	function smoothstep(x0, x1, x) {
+	function smoothstep(x0: number, x1: number, x: number) {
 		let t = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
   		return t * t * (3 - 2 * t);
 	}
@@ -153,23 +154,24 @@ const text = "\
 		canvas.height = h;
 
 		const c = canvas.getContext('2d');
-		//c.strokeStyle = "#fff4";
-		//c.fillStyle = "#0001";
+		if (c == null) {
+			return;
+		}
 		c.strokeStyle = "#0004";
 		c.fillStyle = "#0001";
 		c.lineWidth = 0.5;
 
 		// Mouse/touch velocity
-		let mx = Number.parseFloat(canvas.getAttribute("cursorX"));
-		let my = Number.parseFloat(canvas.getAttribute("cursorY"));
-		//let vx = Number.parseFloat(canvas.getAttribute("cursorVX")) / w;
-		//let vy = Number.parseFloat(canvas.getAttribute("cursorVY")) / h;
+		let mx = Number.parseFloat(
+			canvas.getAttribute("cursorX") || "0");
+		let my = Number.parseFloat(
+			canvas.getAttribute("cursorY") || "0");
 		let vx = mouseActive ? (mx - mxPrev) / w / dt : 0.0;
 		let vy = mouseActive ? (my - myPrev) / h / dt : 0.0;
 		mxPrev = mx;
 		myPrev = my;
-		mouseActive =
-			(Number.parseInt(canvas.getAttribute("cursorActive")) != 0);
+		mouseActive = (Number.parseInt(canvas.getAttribute(
+			"cursorActive") || "0") != 0);
 
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			bubbles.acc[i].x = 0.0;
