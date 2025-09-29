@@ -51,6 +51,7 @@ const text = "\
 
 <script>
 	import { BrownianField } from "../scripts/BrownianField";
+	import { LinearField } from "../scripts/LinearField";
 	import { Color, Point, FieldOutput, ParticleSystem } from "../scripts/ParticleSystem";
 	import * as Utils from "../scripts/utils";
 
@@ -108,7 +109,14 @@ const text = "\
 		}
 	}
 
+	// Field constants
+	const upwardSpeed = -0.15;
+	const waveMag = 0.017;
+	const waveFreq = 8.0;
+	const fluidDrag = 0.35;
+
 	let brownianField = new BrownianField(new Point(42, 84));
+	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
 
 	function animate(timestamp: number) {
 		requestAnimationFrame(animate);
@@ -129,12 +137,6 @@ const text = "\
 		c.strokeStyle = "#0004";
 		c.fillStyle = "#0001";
 		c.lineWidth = 0.5;
-
-		// Field constants
-		const upwardSpeed = -0.15;
-		const waveMag = 0.017;
-		const waveFreq = 8.0;
-		const fluidDrag = 0.35;
 
 		// Reset acceleration
 		for (var i = 0; i < bubbles.pos.length; i++) {
@@ -197,8 +199,10 @@ const text = "\
 		}
 
 		// Upward motion
+		let upward = upwardField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-			fluidVel[i].y +=  upwardSpeed;
+			fluidVel[i].x += upward.falloff[i] * upward.field[i].x;
+			fluidVel[i].y += upward.falloff[i] * upward.field[i].y;
 		}
 
 		// Horizontal oscillation
