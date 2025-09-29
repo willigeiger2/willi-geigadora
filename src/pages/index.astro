@@ -115,7 +115,7 @@ const text = "\
 	const waveFreq = 8.0;
 	const fluidDrag = 0.35;
 
-	let brownianField = new BrownianField(new Point(42, 84));
+	let brownianField = new BrownianField(new Point(25, 50));
 	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
 
 	function animate(timestamp: number) {
@@ -260,7 +260,7 @@ const text = "\
 			let rgb = bubbles.rgb[i];
 			let alpha = bubbles.alpha[i];
 
-			c.strokeStyle = "rgba(" + rgb.r + ", " + rgb.g + ", " + rgb.g +
+			c.strokeStyle = "rgba(" + rgb.r + ", " + rgb.g + ", " + rgb.b +
 			                    ", " + alpha + ")";
 			c.fillStyle = "rgba(" + fillDarker * rgb.r + ", " + fillDarker * rgb.g +
 								", " + fillDarker * rgb.b + ", " + fillTrans * alpha + ")";
