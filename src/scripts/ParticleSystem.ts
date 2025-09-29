@@ -59,6 +59,8 @@ class ParticleSystem {
 
 	advect(dt: number) {
 		for (var i = 0; i < this.pos.length; i++) {
+			this.vel[i].x += dt * this.acc[i].x;
+			this.vel[i].y += dt * this.acc[i].y;
 			this.pos[i].x += dt * this.vel[i].x;
 			this.pos[i].y += dt * this.vel[i].y;
 		}
