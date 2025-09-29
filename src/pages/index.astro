@@ -7,6 +7,7 @@ import VideoFill from '../components/VideoFill.astro';
 import FullscreenLayout from '../layouts/FullscreenLayout.astro';
 import PassiveOverlay from '../layouts/PassiveOverlay.astro';
 import Layout from '../layouts/Layout.astro';
+import { Color, Point, ParticleSystem } from "../scripts/ParticleSystem";
 
 const title = "Willi Geiger";
 const videoBg = { src: "/images/looping-smoke.mp4", type: "video/mp4" };
@@ -51,6 +52,7 @@ const text = "\
 
 <script>
 	import { Color, Point, ParticleSystem } from "../scripts/ParticleSystem";
+	import * as Utils from "../scripts/utils";
 
 	const canvas = document.querySelector('.interactive-canvas') as HTMLCanvasElement;
 	let tPre = performance.now();
@@ -76,38 +78,6 @@ const text = "\
 
 	requestAnimationFrame(animate);
 
-	function hsv2rgb(h: number, s: number, v: number): number[] {
-		while (h < 0) {
-			h += 1;
-		}
-		h *= 6;
-		const i = Math.floor(h);
-  		const f = h - i;
-  		const p = v * (1 - s);
-  		const q = v * (1 - f * s);
-  		const t = v * (1 - (1 - f) * s);
-
-	  switch (i % 6) {
-	    case 0: return [v * 255, t * 255, p * 255];
-	    case 1: return [q * 255, v * 255, p * 255];
-	    case 2: return [p * 255, v * 255, t * 255];
-	    case 3: return [p * 255, q * 255, v * 255];
-	    case 4: return [t * 255, p * 255, v * 255];
-	    case 5: return [v * 255, p * 255, q * 255];
-	  }
-	  return [0, 0, 0];
-	}
-
-	function smoothstep(x0: number, x1: number, x: number) {
-		let t = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
-  		return t * t * (3 - 2 * t);
-	}
-
-	function rotate(pos: Point, angle: number): Point {
-		return new Point(
-			Math.cos(angle) * pos.x + Math.sin(angle) * pos.y,
-		   -Math.sin(angle) * pos.x + Math.cos(angle) * pos.y);
-	}
 	function mousedown(e: MouseEvent) {
 		explode(e.clientX / canvas.clientWidth,
 			    e.clientY / canvas.clientHeight, 200);
@@ -131,7 +101,7 @@ const text = "\
 			const dy = h * (bubbles.pos[i].y - y);
 			const d = Math.sqrt(dx * dx + dy * dy);
 			if (d > 1) {
-				const f = force * smoothstep(0.5, 0, (d / sqrtArea)) / d;
+				const f = force * Utils.smoothstep(0.5, 0, (d / sqrtArea)) / d;
 				bubbles.vel[i].x +=  f * dx / w;
 				bubbles.vel[i].y +=  f * dy / h;
 			}
@@ -219,7 +189,7 @@ const text = "\
 				let dx = bubbles.pos[i].x - bubbles.pos[spinners[n]].x;
 				let dy = bubbles.pos[i].y - bubbles.pos[spinners[n]].y;
 				let d = Math.sqrt(dx * dx + dy * dy);
-				let pRot = rotate(new Point(dx, dy),
+				let pRot = Utils.rotate(new Point(dx, dy),
 				                  spinnerOmegas[n] / (2.0 * Math.PI));
 				fluidVel[i].x += (pRot.x - dx) / Math.max(d, 0.001);
 				fluidVel[i].y += (pRot.y - dy) / Math.max(d, 0.001);
@@ -270,7 +240,7 @@ const text = "\
 			let hue = Math.atan2(hy, hx) / (2 * Math.PI) + 0.5;
 			let sat = Math.min(0.2 * Math.pow(hx * hx + hy * hy, 0.0), 1.0);
 			let val = 1.0;
-			let rgb = hsv2rgb(hue, sat, val);
+			let rgb = Utils.hsv2rgb(hue, sat, val);
 			let a = 0.75;
 			bubbles.rgb[i] = new Color(rgb[0], rgb[1], rgb[2]);
 			bubbles.alpha[i] = 0.8;
