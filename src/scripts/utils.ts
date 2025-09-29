@@ -1,4 +1,4 @@
-import { Color, Point, ParticleSystem } from "../scripts/ParticleSystem";
+import { Point } from "../scripts/ParticleSystem";
 export { hsv2rgb, rotate, smoothstep };
 
 function hsv2rgb(h: number, s: number, v: number): number[] {

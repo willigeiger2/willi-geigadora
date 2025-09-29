@@ -1,25 +1,26 @@
-export { Color, Point, ParticleSystem };
+//export { Color, Field, FieldOutput, Point, ParticleSystem };
 
-class Point {
+export class Point {
 	public constructor(public x: number, public y: number) {}
 }
 
-class Color {
+export class Color {
 	public constructor(public r: number,
 					   public g: number,
 					   public b: number) {}
 }
 
-interface FieldOutput {
-	field: Point[];
-	falloff: number[];
+export class FieldOutput {
+	public constructor(public field: Point[], public falloff: number[]) {}
+	//field: Point[];
+	//falloff: number[];
 }
 
-interface Field {
+export interface Field {
 	evaluate(points: Point[]) : FieldOutput;
 }
 
-class ParticleSystem {
+export class ParticleSystem {
 	pos: Point[] = [];
 	vel: Point[] = [];
 	acc: Point[] = [];

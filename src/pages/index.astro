@@ -7,7 +7,6 @@ import VideoFill from '../components/VideoFill.astro';
 import FullscreenLayout from '../layouts/FullscreenLayout.astro';
 import PassiveOverlay from '../layouts/PassiveOverlay.astro';
 import Layout from '../layouts/Layout.astro';
-import { Color, Point, ParticleSystem } from "../scripts/ParticleSystem";
 
 const title = "Willi Geiger";
 const videoBg = { src: "/images/looping-smoke.mp4", type: "video/mp4" };
@@ -51,13 +50,14 @@ const text = "\
 </style>
 
 <script>
-	import { Color, Point, ParticleSystem } from "../scripts/ParticleSystem";
+	import { BrownianField } from "../scripts/BrownianField";
+	import { Color, Point, FieldOutput, ParticleSystem } from "../scripts/ParticleSystem";
 	import * as Utils from "../scripts/utils";
 
 	const canvas = document.querySelector('.interactive-canvas') as HTMLCanvasElement;
 	let tPre = performance.now();
 	var cxPrev = 0, cyPrev = 0;
-	var mouseActive = false;
+	var cursorActive = false;
 
 	let bubbles = new ParticleSystem();
 	bubbles.createGrid(50, 50);
@@ -108,16 +108,17 @@ const text = "\
 		}
 	}
 
+	let brownianField = new BrownianField(new Point(42, 84));
+
 	function animate(timestamp: number) {
 		requestAnimationFrame(animate);
-		const dt = Math.min((timestamp - tPre)/1000.0, 0.2);
+		const dt = Math.min((timestamp - tPre)/1000.0, 1.0/15.0);
 		tPre = timestamp;
 
-		console.log("FPS: " + 1.0 / dt);
+		//console.log("FPS: " + 1.0 / dt);
 
 		const w = canvas.clientWidth;
 		const h = canvas.clientHeight;
-		//const diag = Math.sqrt(w * w + h * h);
 		canvas.width = w;
 		canvas.height = h;
 
@@ -142,11 +143,10 @@ const text = "\
 		}
 
 		// Apply force fields
-		const brownianX = 120.0 * 0.35;
-		const brownianY = 120.0 * 0.7;
+		let brownian = brownianField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-			bubbles.acc[i].x += brownianX * dt * (Math.random() - 0.5);
-			bubbles.acc[i].y += brownianY * dt * (Math.random() - 0.5);
+			bubbles.acc[i].x += dt * brownian.falloff[i] * brownian.field[i].x;
+			bubbles.acc[i].y += dt * brownian.falloff[i] * brownian.field[i].y;
 		}
 
 		// Apply mouse drag
@@ -154,11 +154,11 @@ const text = "\
 			canvas.getAttribute("cursorX") || "0");
 		let cy = Number.parseFloat(
 			canvas.getAttribute("cursorY") || "0");
-		let vx = mouseActive ? (cx - cxPrev) / w / dt : 0.0;
-		let vy = mouseActive ? (cy - cyPrev) / h / dt : 0.0;
+		let vx = cursorActive ? (cx - cxPrev) / w / dt : 0.0;
+		let vy = cursorActive ? (cy - cyPrev) / h / dt : 0.0;
 		cxPrev = cx;
 		cyPrev = cy;
-		mouseActive = (Number.parseInt(canvas.getAttribute(
+		cursorActive = (Number.parseInt(canvas.getAttribute(
 			"cursorActive") || "0") != 0);
 		const Cd = 1.0;
 		const falloff = 5.0;
