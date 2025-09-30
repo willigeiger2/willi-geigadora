@@ -115,7 +115,7 @@ const text = "\
 	const waveFreq = 8.0;
 	const fluidDrag = 0.35;
 
-	let brownianField = new BrownianField(new Point(50, 50));
+	let brownianField = new BrownianField(new Point(0.5, 0.5));
 	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
 
 	function animate(timestamp: number) {
@@ -147,8 +147,9 @@ const text = "\
 		// Apply force fields
 		let brownian = brownianField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-			bubbles.acc[i].x += dt * brownian.falloff[i] * brownian.field[i].x;
-			bubbles.acc[i].y += dt * brownian.falloff[i] * brownian.field[i].y;
+			// Don't factor in dt -- consider this an impulse force
+			bubbles.acc[i].x += brownian.falloff[i] * brownian.field[i].x;
+			bubbles.acc[i].y += brownian.falloff[i] * brownian.field[i].y;
 		}
 
 		// Apply mouse drag
