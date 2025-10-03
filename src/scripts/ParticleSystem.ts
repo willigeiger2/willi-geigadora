@@ -33,9 +33,15 @@ export class ParticleSystem {
 	rgb: Color[] = [];
 	alpha: number[] = [];
 	preAnimateCallbacks: AnimationCallback[] = [];
+	postAnimateCallbacks: AnimationCallback[] = [];
+	tPre: number = performance.now();
 
 	addPreAnimationCallback(callback: AnimationCallback) {
 		this.preAnimateCallbacks.push(callback);
+	}
+
+	addPostAnimationCallback(callback: AnimationCallback) {
+		this.postAnimateCallbacks.push(callback);
 	}
 
 	initialize(size: number) {
@@ -82,7 +88,17 @@ export class ParticleSystem {
 
 	private update(timestamp: number) {
 		requestAnimationFrame(timestamp => this.update(timestamp));
+
+		const dt = Math.min((timestamp - this.tPre)/1000.0, 1.0/15.0);
+		this.tPre = timestamp;
+
 		for (const callback of this.preAnimateCallbacks) {
+			callback(timestamp);
+		}
+
+		this.advect(dt);
+		
+		for (const callback of this.postAnimateCallbacks) {
 			callback(timestamp);
 		}
 	}

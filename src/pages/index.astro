@@ -121,10 +121,11 @@ const text = "\
 		new Point(brownianMagnitude, brownianMagnitude));
 	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
 
-	bubbles.addPreAnimationCallback(animate);
+	bubbles.addPreAnimationCallback(preAnimation);
+	bubbles.addPostAnimationCallback(postAnimation);
 	bubbles.animate();
 
-	function animate(timestamp: number) {
+	function preAnimation(timestamp: number) {
 		const dt = Math.min((timestamp - tPre)/1000.0, 1.0/15.0);
 		tPre = timestamp;
 
@@ -134,14 +135,6 @@ const text = "\
 		const h = canvas.clientHeight;
 		canvas.width = w;
 		canvas.height = h;
-
-		const c = canvas.getContext('2d');
-		if (c == null) {
-			return;
-		}
-		c.strokeStyle = "#0004";
-		c.fillStyle = "#0001";
-		c.lineWidth = 0.5;
 
 		// Reset acceleration
 		for (var i = 0; i < bubbles.pos.length; i++) {
@@ -210,9 +203,9 @@ const text = "\
 			bubbles.acc[i].y += (1.0 - fd)
 				* (fluid.field[i].y - bubbles.vel[i].y) / dt;
 		}
+	}
 
-		bubbles.advect(dt);
-
+	function postAnimation(timestamp: number) {
 		// Handle edges
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			// Handle particles going off screen
@@ -244,9 +237,20 @@ const text = "\
 		}
 
 		// Draw
+		const w = canvas.clientWidth;
+		const h = canvas.clientHeight;
 		const areaScale = 0.001 * Math.sqrt(w * w + h * h);
 		const fillDarker = 0.4;
 		const fillTrans = 0.25;
+
+		const c = canvas.getContext('2d');
+		if (c == null) {
+			return;
+		}
+		c.strokeStyle = "#0004";
+		c.fillStyle = "#0001";
+		c.lineWidth = 0.5;
+
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			let px = bubbles.pos[i].x * w;
 			let py = bubbles.pos[i].y * h;
