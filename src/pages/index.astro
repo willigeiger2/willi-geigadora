@@ -56,6 +56,7 @@ const text = "\
 		from "../scripts/ParticleSystem";
 	import { RadialFalloff } from "../scripts/RadialFalloff";
 	import { RadialField } from "../scripts/RadialField";
+	import { SumField } from "../scripts/SumField";
 	import * as Utils from "../scripts/utils";
 	import { VortexField } from "../scripts/VortexField";
 	import { WaveField } from "../scripts/WaveField";
@@ -181,62 +182,33 @@ const text = "\
 				bubbles.acc[i].y += (1.0 - cd) * (vy - bubbles.vel[i].y) / dt;
 			}
 		}
-	/*
-		for (var i = 0; i < bubbles.pos.length; i++) {
-			let dx = cx / w - bubbles.pos[i].x;
-			let dy = cy / h - bubbles.pos[i].y;
-			if (dx >  0.5) dx -= 1.0;
-			if (dx < -0.5) dx += 1.0;
-			const d = Math.sqrt(dx * dx + dy * dy);
-			const k = Math.pow(1.0 - Cd / (falloff * d + 1.0), dt);
-			if (Math.abs(vx) > 0.0) {
-				bubbles.acc[i].x += (1.0 - k) * (vx - bubbles.vel[i].x) / dt;
-			}
-			if (Math.abs(vy) > 0.0) {
-				bubbles.acc[i].y += (1.0 - k) * (vy - bubbles.vel[i].y) / dt;
-			}
-		}
-			*/
 
-		// Fluid drag
-		let fluidVel = new Array<Point>(bubbles.pos.length);
-		for (var i = 0; i < bubbles.pos.length; i++) {
-			fluidVel[i] = new Point(0.0, 0.0);
-		}
+		let fluidField = new SumField([]);
 
 		// Spinners
 		for (var n = 0; n < numSpinners; n++) {
-			let vortex: FieldOutput = new VortexField(
+			fluidField.addField(new VortexField(
 					bubbles.pos[spinners[n]],
-					spinnerOmegas[n]).evaluate(bubbles.pos);
-			for (var i = 0; i < bubbles.pos.length; i++) {
-				fluidVel[i].x += vortex.falloff[i] * vortex.field[i].x;
-				fluidVel[i].y += vortex.falloff[i] * vortex.field[i].y;
-			}
+					spinnerOmegas[n]));
 		}
 
 		// Upward motion
+		fluidField.addField(upwardField);
 		let upward = upwardField.evaluate(bubbles.pos);
-		for (var i = 0; i < bubbles.pos.length; i++) {
-			fluidVel[i].x += upward.falloff[i] * upward.field[i].x;
-			fluidVel[i].y += upward.falloff[i] * upward.field[i].y;
-		}
+
 		// Horizontal oscillation
 		let waveAxis = new Point(0.0, 1.0);
+		fluidField.addField(upwardField);
 		let waveField = new WaveField(waveAxis, waveMag, waveFreq, 0.0);
 		let wave = waveField.evaluate(bubbles.pos);
-		for (var i = 0; i < bubbles.pos.length; i++) {
-			fluidVel[i].x += wave.falloff[i] * wave.field[i].x;
-			fluidVel[i].y += wave.falloff[i] * wave.field[i].y;
-		}
 
-		// Apply combined fluid drag
-		let fd = Math.pow(1.0 - fluidDrag, dt);
+		let fluid = fluidField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
+		let fd = Math.pow(1.0 - fluidDrag, dt);
 			bubbles.acc[i].x += (1.0 - fd)
-				* (fluidVel[i].x - bubbles.vel[i].x) / dt;
+				* (fluid.field[i].x - bubbles.vel[i].x) / dt;
 			bubbles.acc[i].y += (1.0 - fd)
-				* (fluidVel[i].y - bubbles.vel[i].y) / dt;
+				* (fluid.field[i].y - bubbles.vel[i].y) / dt;
 		}
 
 		bubbles.advect(dt);
