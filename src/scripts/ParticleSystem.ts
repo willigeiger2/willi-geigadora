@@ -10,15 +10,19 @@ export class Color {
 					   public b: number) {}
 }
 
+export interface Falloff {
+	evaluate(points: Point[]) : number[];
+}
+
 export class FieldOutput {
 	public constructor(public field: Point[], public falloff: number[]) {}
-	//field: Point[];
-	//falloff: number[];
 }
 
 export interface Field {
 	evaluate(points: Point[]) : FieldOutput;
 }
+
+type AnimationCallback = (timestamp: number) => void;
 
 export class ParticleSystem {
 	pos: Point[] = [];
@@ -28,6 +32,11 @@ export class ParticleSystem {
 	rad: number[] = [];
 	rgb: Color[] = [];
 	alpha: number[] = [];
+	preAnimateCallbacks: AnimationCallback[] = [];
+
+	addPreAnimationCallback(callback: AnimationCallback) {
+		this.preAnimateCallbacks.push(callback);
+	}
 
 	initialize(size: number) {
 		this.pos = new Array<Point>(size);
@@ -64,6 +73,17 @@ export class ParticleSystem {
 			this.vel[i].y += dt * this.acc[i].y;
 			this.pos[i].x += dt * this.vel[i].x;
 			this.pos[i].y += dt * this.vel[i].y;
+		}
+	}
+
+	animate() {
+		requestAnimationFrame(ts => this.update(ts));
+	}
+
+	private update(timestamp: number) {
+		requestAnimationFrame(timestamp => this.update(timestamp));
+		for (const callback of this.preAnimateCallbacks) {
+			callback(timestamp);
 		}
 	}
 }

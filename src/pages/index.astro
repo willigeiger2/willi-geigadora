@@ -54,6 +54,7 @@ const text = "\
 	import { LinearField } from "../scripts/LinearField";
 	import { Color, Point, FieldOutput, ParticleSystem }
 		from "../scripts/ParticleSystem";
+	import { RadialFalloff } from "../scripts/RadialFalloff";
 	import { RadialField } from "../scripts/RadialField";
 	import * as Utils from "../scripts/utils";
 	import { VortexField } from "../scripts/VortexField";
@@ -81,7 +82,7 @@ const text = "\
 	canvas.addEventListener("mousedown", mousedown);
 	//canvas.addEventListener("touchstart", touchstart);
 
-	requestAnimationFrame(animate);
+	//requestAnimationFrame(animate);
 
 	function mousedown(e: MouseEvent) {
 		explode(e.clientX / canvas.clientWidth,
@@ -119,8 +120,10 @@ const text = "\
 		new Point(brownianMagnitude, brownianMagnitude));
 	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
 
+	bubbles.addPreAnimationCallback(animate);
+	bubbles.animate();
+
 	function animate(timestamp: number) {
-		requestAnimationFrame(animate);
 		const dt = Math.min((timestamp - tPre)/1000.0, 1.0/15.0);
 		tPre = timestamp;
 
@@ -165,7 +168,20 @@ const text = "\
 		cursorActive = (Number.parseInt(canvas.getAttribute(
 			"cursorActive") || "0") != 0);
 		const Cd = 1.0;
-		const falloff = 5.0;
+		//const falloff = 5.0;
+		let cursorField = new LinearField(new Point(vx, vy));
+		let cursor = cursorField.evaluate(bubbles.pos);
+		let cursorFalloff = new RadialFalloff(
+			new Point(cx / w, cy / h), 5.0, new Point(w, h));
+		let falloff = cursorFalloff.evaluate(bubbles.pos);
+		if (vx * vx + vy * vy > 0) {
+			for (var i = 0; i < bubbles.pos.length; i++) {
+				let cd = Math.pow(1.0 - Math.pow(falloff[i], 10.0), dt);
+				bubbles.acc[i].x += (1.0 - cd) * (vx - bubbles.vel[i].x) / dt;
+				bubbles.acc[i].y += (1.0 - cd) * (vy - bubbles.vel[i].y) / dt;
+			}
+		}
+	/*
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			let dx = cx / w - bubbles.pos[i].x;
 			let dy = cy / h - bubbles.pos[i].y;
@@ -180,6 +196,7 @@ const text = "\
 				bubbles.acc[i].y += (1.0 - k) * (vy - bubbles.vel[i].y) / dt;
 			}
 		}
+			*/
 
 		// Fluid drag
 		let fluidVel = new Array<Point>(bubbles.pos.length);
