@@ -1,5 +1,9 @@
 import { Point } from "../scripts/ParticleSystem";
-export { hsv2rgb, rotate, smoothstep };
+export { dot, hsv2rgb, rotate, smoothstep };
+
+function dot(a: Point, b: Point): number {
+	return a.x * b.x + a.y * b.y;
+}
 
 function hsv2rgb(h: number, s: number, v: number): number[] {
 	while (h < 0) {

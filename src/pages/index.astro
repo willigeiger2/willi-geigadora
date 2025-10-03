@@ -10,7 +10,7 @@ import Layout from '../layouts/Layout.astro';
 
 const title = "Willi Geiger";
 const videoBg = { src: "/images/looping-smoke.mp4", type: "video/mp4" };
-const heading = "";
+const heading = "Lost?";
 const text = "\
 	I'm Willi Geiger, this is my place to experiment.\
 	Right now, you're looking at a particle system.\
@@ -23,7 +23,7 @@ const text = "\
 			<NavBar></NavBar>
 		    <VideoFill
 		      	src={videoBg.src}
-				type=
+				type={videoBg.type}
 			></VideoFill>
 			<PassiveOverlay>
 				<Heading1Card text={heading}></Heading1Card>
@@ -52,8 +52,12 @@ const text = "\
 <script>
 	import { BrownianField } from "../scripts/BrownianField";
 	import { LinearField } from "../scripts/LinearField";
-	import { Color, Point, FieldOutput, ParticleSystem } from "../scripts/ParticleSystem";
+	import { Color, Point, FieldOutput, ParticleSystem }
+		from "../scripts/ParticleSystem";
+	import { RadialField } from "../scripts/RadialField";
 	import * as Utils from "../scripts/utils";
+	import { VortexField } from "../scripts/VortexField";
+	import { WaveField } from "../scripts/WaveField";
 
 	const canvas = document.querySelector('.interactive-canvas') as HTMLCanvasElement;
 	let tPre = performance.now();
@@ -93,29 +97,26 @@ const text = "\
 	}
 
 	function explode(x: number, y: number, force: number) {
-		const w = canvas.clientWidth;
-		const h = canvas.clientHeight;
-		const sqrtArea = Math.sqrt(w * w + h * h);
-
+		let radialField = new RadialField(
+			new Point(x, y), force,
+			new Point(canvas.clientWidth, canvas.clientHeight));
+		let radial = radialField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-			const dx = w * (bubbles.pos[i].x - x);
-			const dy = h * (bubbles.pos[i].y - y);
-			const d = Math.sqrt(dx * dx + dy * dy);
-			if (d > 1) {
-				const f = force * Utils.smoothstep(0.5, 0, (d / sqrtArea)) / d;
-				bubbles.vel[i].x +=  f * dx / w;
-				bubbles.vel[i].y +=  f * dy / h;
-			}
+			// Don't factor in dt -- consider this an impulse force
+			bubbles.vel[i].x += radial.falloff[i] * radial.field[i].x;
+			bubbles.vel[i].y += radial.falloff[i] * radial.field[i].y;
 		}
 	}
 
 	// Field constants
 	const upwardSpeed = -0.15;
-	const waveMag = 0.017;
-	const waveFreq = 8.0;
+	const waveMag = 0.1;
+	const waveFreq = 1.25;
 	const fluidDrag = 0.35;
+	const brownianMagnitude = 0.005;
 
-	let brownianField = new BrownianField(new Point(0.5, 0.5));
+	let brownianField = new BrownianField(
+		new Point(brownianMagnitude, brownianMagnitude));
 	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
 
 	function animate(timestamp: number) {
@@ -148,8 +149,8 @@ const text = "\
 		let brownian = brownianField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			// Don't factor in dt -- consider this an impulse force
-			bubbles.acc[i].x += brownian.falloff[i] * brownian.field[i].x;
-			bubbles.acc[i].y += brownian.falloff[i] * brownian.field[i].y;
+			bubbles.vel[i].x += brownian.falloff[i] * brownian.field[i].x;
+			bubbles.vel[i].y += brownian.falloff[i] * brownian.field[i].y;
 		}
 
 		// Apply mouse drag
@@ -188,14 +189,12 @@ const text = "\
 
 		// Spinners
 		for (var n = 0; n < numSpinners; n++) {
+			let vortex: FieldOutput = new VortexField(
+					bubbles.pos[spinners[n]],
+					spinnerOmegas[n]).evaluate(bubbles.pos);
 			for (var i = 0; i < bubbles.pos.length; i++) {
-				let dx = bubbles.pos[i].x - bubbles.pos[spinners[n]].x;
-				let dy = bubbles.pos[i].y - bubbles.pos[spinners[n]].y;
-				let d = Math.sqrt(dx * dx + dy * dy);
-				let pRot = Utils.rotate(new Point(dx, dy),
-				                  spinnerOmegas[n] / (2.0 * Math.PI));
-				fluidVel[i].x += (pRot.x - dx) / Math.max(d, 0.001);
-				fluidVel[i].y += (pRot.y - dy) / Math.max(d, 0.001);
+				fluidVel[i].x += vortex.falloff[i] * vortex.field[i].x;
+				fluidVel[i].y += vortex.falloff[i] * vortex.field[i].y;
 			}
 		}
 
@@ -205,18 +204,22 @@ const text = "\
 			fluidVel[i].x += upward.falloff[i] * upward.field[i].x;
 			fluidVel[i].y += upward.falloff[i] * upward.field[i].y;
 		}
-
 		// Horizontal oscillation
+		let waveAxis = new Point(0.0, 1.0);
+		let waveField = new WaveField(waveAxis, waveMag, waveFreq, 0.0);
+		let wave = waveField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-			fluidVel[i].x += waveMag *
-				(Math.cos(waveFreq * bubbles.pos[i].y) - 1.0);
+			fluidVel[i].x += wave.falloff[i] * wave.field[i].x;
+			fluidVel[i].y += wave.falloff[i] * wave.field[i].y;
 		}
 
 		// Apply combined fluid drag
 		let fd = Math.pow(1.0 - fluidDrag, dt);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-			bubbles.acc[i].x += (1.0 - fd) * (fluidVel[i].x - bubbles.vel[i].x) / dt;
-			bubbles.acc[i].y += (1.0 - fd) * (fluidVel[i].y - bubbles.vel[i].y) / dt;
+			bubbles.acc[i].x += (1.0 - fd)
+				* (fluidVel[i].x - bubbles.vel[i].x) / dt;
+			bubbles.acc[i].y += (1.0 - fd)
+				* (fluidVel[i].y - bubbles.vel[i].y) / dt;
 		}
 
 		bubbles.advect(dt);
