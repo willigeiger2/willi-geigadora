@@ -136,12 +136,6 @@ const text = "\
 		canvas.width = w;
 		canvas.height = h;
 
-		// Reset acceleration
-		for (var i = 0; i < bubbles.pos.length; i++) {
-			bubbles.acc[i].x = 0.0;
-			bubbles.acc[i].y = 0.0;
-		}
-
 		// Apply force fields
 		let brownian = brownianField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
@@ -161,7 +155,7 @@ const text = "\
 		cyPrev = cy;
 		cursorActive = (Number.parseInt(canvas.getAttribute(
 			"cursorActive") || "0") != 0);
-		const Cd = 1.0;
+		//const Cd = 1.0;
 		//const falloff = 5.0;
 		let cursorField = new LinearField(new Point(vx, vy));
 		let cursor = cursorField.evaluate(bubbles.pos);
@@ -191,10 +185,10 @@ const text = "\
 
 		// Horizontal oscillation
 		let waveAxis = new Point(0.0, 1.0);
-		fluidField.addField(upwardField);
 		let waveField = new WaveField(waveAxis, waveMag, waveFreq, 0.0);
-		let wave = waveField.evaluate(bubbles.pos);
+		fluidField.addField(waveField);
 
+		// Combined fluid field
 		let fluid = fluidField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
 		let fd = Math.pow(1.0 - fluidDrag, dt);

@@ -92,12 +92,17 @@ export class ParticleSystem {
 		const dt = Math.min((timestamp - this.tPre)/1000.0, 1.0/15.0);
 		this.tPre = timestamp;
 
+		for (var i = 0; i < this.pos.length; i++) {
+			this.acc[i].x = 0.0;
+			this.acc[i].y = 0.0;
+		}
+
 		for (const callback of this.preAnimateCallbacks) {
 			callback(timestamp);
 		}
 
 		this.advect(dt);
-		
+
 		for (const callback of this.postAnimateCallbacks) {
 			callback(timestamp);
 		}
