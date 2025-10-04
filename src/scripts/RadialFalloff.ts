@@ -17,10 +17,21 @@ class RadialFalloff implements Falloff {
 		for (var i = 0; i < size; i++) {
 			let dx = w * (points[i].x - this.center.x);
 			let dy = h * (points[i].y - this.center.y);
+
+			// Optional wrapping -- this should be parameterized
+			if (dx < -0.5) dx += 1.0;
+			if (dx >  0.5) dx -= 1.0;
+			if (dy < -0.5) dy += 1.0;
+			if (dy >  0.5) dy -= 1.0;
+
 			let d = Math.sqrt(dx * dx + dy * dy) / sqrtArea;
 			//console.log("d = " + d);
-			//const k = 1.0 / (this.magnitude * d + 1.0);
-			const k = Utils.smoothstep(1.0, 0.0, d);
+			//const k = 1.0 / (/*this.magnitude*/ 1.0 * d + 1.0);
+			// Inner and outer radius should be parameterized
+			const innerRadius = -0.1;
+			const outerRadius = 1.0;
+			const k = Utils.smoothstep(outerRadius, innerRadius, d);
+			//const k = 1.0 - Utils.smoothstep(innerRadius, outerRadius, d);
 			/*
 			const f = this.magnitude *
 				Utils.smoothstep(0.5, 0, (d / sqrtArea)) / d;

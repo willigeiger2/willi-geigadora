@@ -83,8 +83,6 @@ const text = "\
 	canvas.addEventListener("mousedown", mousedown);
 	//canvas.addEventListener("touchstart", touchstart);
 
-	//requestAnimationFrame(animate);
-
 	function mousedown(e: MouseEvent) {
 		explode(e.clientX / canvas.clientWidth,
 			    e.clientY / canvas.clientHeight, 200);
@@ -111,14 +109,13 @@ const text = "\
 	}
 
 	// Field constants
-	const upwardSpeed = -0.15;
-	const waveMag = 0.1;
-	const waveFreq = 1.25;
 	const fluidDrag = 0.35;
-	const brownianMagnitude = 0.005;
 
+	const brownianMagnitude = 0.005;
 	let brownianField = new BrownianField(
 		new Point(brownianMagnitude, brownianMagnitude));
+
+	const upwardSpeed = -0.15;
 	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
 
 	bubbles.addPreAnimationCallback(preAnimation);
@@ -135,14 +132,6 @@ const text = "\
 		const h = canvas.clientHeight;
 		canvas.width = w;
 		canvas.height = h;
-
-		// Apply force fields
-		let brownian = brownianField.evaluate(bubbles.pos);
-		for (var i = 0; i < bubbles.pos.length; i++) {
-			// Don't factor in dt -- consider this an impulse force
-			bubbles.vel[i].x += brownian.falloff[i] * brownian.field[i].x;
-			bubbles.vel[i].y += brownian.falloff[i] * brownian.field[i].y;
-		}
 
 		// Apply mouse drag
 		let cx = Number.parseFloat(
@@ -181,9 +170,10 @@ const text = "\
 
 		// Upward motion
 		fluidField.addField(upwardField);
-		let upward = upwardField.evaluate(bubbles.pos);
 
 		// Horizontal oscillation
+		const waveMag = 0.1;
+		const waveFreq = 1.25;
 		let waveAxis = new Point(0.0, 1.0);
 		let waveField = new WaveField(waveAxis, waveMag, waveFreq, 0.0);
 		fluidField.addField(waveField);
@@ -196,6 +186,14 @@ const text = "\
 				* (fluid.field[i].x - bubbles.vel[i].x) / dt;
 			bubbles.acc[i].y += (1.0 - fd)
 				* (fluid.field[i].y - bubbles.vel[i].y) / dt;
+		}
+
+		// Apply force fields
+		let brownian = brownianField.evaluate(bubbles.pos);
+		for (var i = 0; i < bubbles.pos.length; i++) {
+			// Don't factor in dt -- consider this an impulse force
+			bubbles.vel[i].x += brownian.falloff[i] * brownian.field[i].x;
+			bubbles.vel[i].y += brownian.falloff[i] * brownian.field[i].y;
 		}
 	}
 
