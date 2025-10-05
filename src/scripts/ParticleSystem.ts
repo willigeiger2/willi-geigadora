@@ -88,7 +88,6 @@ export class ParticleSystem {
 
 	private update(timestamp: number) {
 		requestAnimationFrame(timestamp => this.update(timestamp));
-
 		const dt = Math.min((timestamp - this.tPre)/1000.0, 1.0/15.0);
 		this.tPre = timestamp;
 

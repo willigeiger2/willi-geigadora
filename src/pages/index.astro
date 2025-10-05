@@ -148,14 +148,19 @@ const text = "\
 		//const falloff = 5.0;
 		let cursorField = new LinearField(new Point(vx, vy));
 		let cursor = cursorField.evaluate(bubbles.pos);
+		const innerRadius = -0.1;
+		const outerRadius = 0.5;
 		let cursorFalloff = new RadialFalloff(
-			new Point(cx / w, cy / h), 5.0, new Point(w, h));
+			new Point(cx / w, cy / h),
+			innerRadius, outerRadius, new Point(w, h));
 		let falloff = cursorFalloff.evaluate(bubbles.pos);
 		if (vx * vx + vy * vy > 0) {
 			for (var i = 0; i < bubbles.pos.length; i++) {
-				let cd = Math.pow(1.0 - Math.pow(falloff[i], 10.0), dt);
-				bubbles.acc[i].x += (1.0 - cd) * (vx - bubbles.vel[i].x) / dt;
-				bubbles.acc[i].y += (1.0 - cd) * (vy - bubbles.vel[i].y) / dt;
+				let cd = Math.pow(1.0 - Math.pow(falloff[i], 1.0), dt);
+				bubbles.acc[i].x +=
+					(1.0 - cd) * (cursor.field[i].x - bubbles.vel[i].x) / dt;
+				bubbles.acc[i].y +=
+					(1.0 - cd) * (cursor.field[i].y - bubbles.vel[i].y) / dt;
 			}
 		}
 

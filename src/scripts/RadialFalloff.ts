@@ -4,7 +4,8 @@ export { RadialFalloff };
 
 class RadialFalloff implements Falloff {
 	public constructor(public center: Point,
-		               public magnitude: number,
+		               public innerRadius: number,
+		               public outerRadius: number,
 					   public screenSize: Point) {}
 
 	evaluate(points: Point[]) : number[] {
@@ -28,9 +29,8 @@ class RadialFalloff implements Falloff {
 			//console.log("d = " + d);
 			//const k = 1.0 / (/*this.magnitude*/ 1.0 * d + 1.0);
 			// Inner and outer radius should be parameterized
-			const innerRadius = -0.1;
-			const outerRadius = 1.0;
-			const k = Utils.smoothstep(outerRadius, innerRadius, d);
+			const k = Utils.smoothstep(
+				this.outerRadius, this.innerRadius, d);
 			//const k = 1.0 - Utils.smoothstep(innerRadius, outerRadius, d);
 			/*
 			const f = this.magnitude *
