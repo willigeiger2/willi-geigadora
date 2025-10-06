@@ -186,11 +186,11 @@ const text = "\
 		// Combined fluid field
 		let fluid = fluidField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-		let fd = Math.pow(1.0 - fluidDrag, dt);
-			bubbles.acc[i].x += (1.0 - fd)
-				* (fluid.field[i].x - bubbles.vel[i].x) / dt;
-			bubbles.acc[i].y += (1.0 - fd)
-				* (fluid.field[i].y - bubbles.vel[i].y) / dt;
+		let fd = 1.0 - Math.pow(1.0 - fluidDrag, dt);
+			bubbles.acc[i].x +=
+			  fd * (fluid.field[i].x - bubbles.vel[i].x) / dt;
+			bubbles.acc[i].y +=
+			  fd * (fluid.field[i].y - bubbles.vel[i].y) / dt;
 		}
 
 		// Apply force fields
