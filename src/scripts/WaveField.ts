@@ -25,4 +25,24 @@ class WaveField implements Field {
 
 		return new FieldOutput(field, falloff);
 	}
+
+	setAxis(axis: Point): WaveField {
+		this.axis = axis;
+		return this;
+	}
+
+	setFrequency(frequency: number): WaveField {
+		this.frequency = frequency;
+		return this;
+	}
+
+	setMagnitude(magnitude: number): WaveField {
+		this.magnitude = magnitude;
+		return this;
+	}
+
+	setPhase(phase: number): WaveField {
+		this.phase = phase;
+		return this;
+	}
 }

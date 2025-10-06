@@ -29,4 +29,19 @@ class RadialField implements Field {
 
 		return new FieldOutput(field, falloff);
 	}
+
+	setCenter(center: Point): RadialField {
+		this.center = center;
+		return this;
+	}
+
+	setMagnitude(magnitude: number): RadialField {
+		this.magnitude = magnitude;
+		return this;
+	}
+
+	setScreenSize(screenSize: Point): RadialField {
+		this.screenSize = screenSize;
+		return this;
+	}
 }

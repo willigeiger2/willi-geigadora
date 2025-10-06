@@ -32,4 +32,24 @@ class RadialFalloff implements Falloff {
 
 		return falloff;
 	}
+
+	setCenter(center: Point): RadialFalloff {
+		this.center = center;
+		return this;
+	}
+
+	setInnerRadius(innerRadius: number): RadialFalloff {
+		this.innerRadius = innerRadius;
+		return this;
+	}
+
+	setOuterRadius(outerRadius: number): RadialFalloff {
+		this.outerRadius = outerRadius;
+		return this;
+	}
+
+	setScreenSize(screenSize: Point): RadialFalloff {
+		this.screenSize = screenSize;
+		return this;
+	}
 }

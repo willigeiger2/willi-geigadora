@@ -16,4 +16,9 @@ class BrownianField implements Field {
 		}
 		return new FieldOutput(field, falloff);
 	}
+
+	setMagnitude(magnitude: Point): BrownianField {
+		this.magnitude = magnitude;
+		return this;
+	}
 }

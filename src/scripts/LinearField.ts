@@ -14,4 +14,9 @@ class LinearField implements Field {
 		}
 		return new FieldOutput(field, falloff);
 	}
+
+	setDirection(direction: Point): LinearField {
+		this.direction = direction;
+		return this;
+	}
 }

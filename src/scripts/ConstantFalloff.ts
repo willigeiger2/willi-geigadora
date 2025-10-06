@@ -15,4 +15,9 @@ class ConstantFalloff implements Falloff {
 
 		return falloff;
 	}
+
+	setValue(value: number): ConstantFalloff {
+		this.value = value;
+		return this;
+	}
 }

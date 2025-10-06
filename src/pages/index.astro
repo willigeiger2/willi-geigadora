@@ -62,7 +62,8 @@ const text = "\
 	import { VortexField } from "../scripts/VortexField";
 	import { WaveField } from "../scripts/WaveField";
 
-	const canvas = document.querySelector('.interactive-canvas') as HTMLCanvasElement;
+	const canvas = document.querySelector(
+		'.interactive-canvas') as HTMLCanvasElement;
 	let tPre = performance.now();
 	var cxPrev = 0, cyPrev = 0;
 	var cursorActive = false;

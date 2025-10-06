@@ -21,4 +21,14 @@ class VortexField implements Field {
 		}
 		return new FieldOutput(field, falloff);
 	}
+
+	setCenter(center: Point): VortexField {
+		this.center = center;
+		return this;
+	}
+
+	setOmega(omega: number): VortexField {
+		this.omega = omega;
+		return this;
+	}
 }
