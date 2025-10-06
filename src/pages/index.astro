@@ -51,6 +51,7 @@ const text = "\
 
 <script>
 	import { BrownianField } from "../scripts/BrownianField";
+	import { ConstantFalloff } from "../scripts/ConstantFalloff";
 	import { LinearField } from "../scripts/LinearField";
 	import { Color, Point, FieldOutput, ParticleSystem }
 		from "../scripts/ParticleSystem";
@@ -108,9 +109,6 @@ const text = "\
 		}
 	}
 
-	// Field constants
-	const fluidDrag = 0.35;
-
 	const brownianMagnitude = 0.005;
 	let brownianField = new BrownianField(
 		new Point(brownianMagnitude, brownianMagnitude));
@@ -144,8 +142,6 @@ const text = "\
 		cyPrev = cy;
 		cursorActive = (Number.parseInt(canvas.getAttribute(
 			"cursorActive") || "0") != 0);
-		//const Cd = 1.0;
-		//const falloff = 5.0;
 		let cursorField = new LinearField(new Point(vx, vy));
 		let cursor = cursorField.evaluate(bubbles.pos);
 		const innerRadius = -0.1;
@@ -165,6 +161,8 @@ const text = "\
 		}
 
 		let fluidField = new SumField([]);
+		const fluidDrag = 0.35;
+		let fluidFalloff = new ConstantFalloff(fluidDrag);
 
 		// Spinners
 		for (var n = 0; n < numSpinners; n++) {
@@ -185,8 +183,9 @@ const text = "\
 
 		// Combined fluid field
 		let fluid = fluidField.evaluate(bubbles.pos);
+		let fluidStrength = fluidFalloff.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
-		let fd = 1.0 - Math.pow(1.0 - fluidDrag, dt);
+			let fd = 1.0 - Math.pow(1.0 - fluidStrength[i], dt);
 			bubbles.acc[i].x +=
 			  fd * (fluid.field[i].x - bubbles.vel[i].x) / dt;
 			bubbles.acc[i].y +=

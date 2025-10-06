@@ -26,17 +26,8 @@ class RadialFalloff implements Falloff {
 			if (dy >  0.5) dy -= 1.0;
 
 			let d = Math.sqrt(dx * dx + dy * dy) / sqrtArea;
-			//console.log("d = " + d);
-			//const k = 1.0 / (/*this.magnitude*/ 1.0 * d + 1.0);
-			// Inner and outer radius should be parameterized
-			const k = Utils.smoothstep(
+			falloff[i] = Utils.smoothstep(
 				this.outerRadius, this.innerRadius, d);
-			//const k = 1.0 - Utils.smoothstep(innerRadius, outerRadius, d);
-			/*
-			const f = this.magnitude *
-				Utils.smoothstep(0.5, 0, (d / sqrtArea)) / d;
-				*/
-			falloff[i] = k;
 		}
 
 		return falloff;
