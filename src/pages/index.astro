@@ -163,11 +163,11 @@ const text = "\
 		let falloff = cursorFalloff.evaluate(bubbles.pos);
 
 		for (var i = 0; i < bubbles.pos.length; i++) {
-			let cd = Math.pow(1.0 - falloff[i], dt);
+			let cd = 1.0 - Math.pow(1.0 - falloff[i], dt);
 			bubbles.acc[i].x +=
-				(1.0 - cd) * (cursor.field[i].x - bubbles.vel[i].x) / dt;
+				cd * (cursor.field[i].x - bubbles.vel[i].x) / dt;
 			bubbles.acc[i].y +=
-				(1.0 - cd) * (cursor.field[i].y - bubbles.vel[i].y) / dt;
+				cd * (cursor.field[i].y - bubbles.vel[i].y) / dt;
 		}
 
 		let fluidField = new SumField([]);
@@ -206,8 +206,8 @@ const text = "\
 		let brownian = brownianField.evaluate(bubbles.pos);
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			// Don't factor in dt -- consider this an impulse force
-			bubbles.vel[i].x += brownian.falloff[i] * brownian.field[i].x;
-			bubbles.vel[i].y += brownian.falloff[i] * brownian.field[i].y;
+			bubbles.acc[i].x += brownian.falloff[i] * brownian.field[i].x / dt;
+			bubbles.acc[i].y += brownian.falloff[i] * brownian.field[i].y / dt;
 		}
 	}
 
