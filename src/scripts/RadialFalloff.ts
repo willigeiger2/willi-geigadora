@@ -4,6 +4,7 @@ export { RadialFalloff };
 
 class RadialFalloff implements Falloff {
 	public constructor(public center: Point,
+					   public value: number,
 		               public innerRadius: number,
 		               public outerRadius: number,
 					   public screenSize: Point) {}
@@ -26,7 +27,7 @@ class RadialFalloff implements Falloff {
 			if (dy >  0.5) dy -= 1.0;
 
 			let d = Math.sqrt(dx * dx + dy * dy) / sqrtArea;
-			falloff[i] = Utils.smoothstep(
+			falloff[i] = this.value * Utils.smoothstep(
 				this.outerRadius, this.innerRadius, d);
 		}
 
@@ -50,6 +51,11 @@ class RadialFalloff implements Falloff {
 
 	setScreenSize(screenSize: Point): RadialFalloff {
 		this.screenSize = screenSize;
+		return this;
+	}
+
+	setValue(value: number): RadialFalloff {
+		this.value = value;
 		return this;
 	}
 }
