@@ -90,6 +90,7 @@ const text = "\
 			    e.clientY / canvas.clientHeight, 200);
 	}
 
+	/*
 	function touchstart(e: TouchEvent) {
 		if (!e.touches[0]) {
 			return;
@@ -97,12 +98,15 @@ const text = "\
 		explode(e.touches[0].clientX / canvas.clientWidth,
 			    e.touches[0].clientY / canvas.clientHeight, 10);
 	}
+	*/
 
 	function explode(x: number, y: number, force: number) {
 		let radialField = new RadialField(
-			new Point(x, y), force,
+			new Point(x, y),
+			force,
 			new Point(canvas.clientWidth, canvas.clientHeight));
 		let radial = radialField.evaluate(bubbles.pos);
+
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			// Don't factor in dt -- consider this an impulse force
 			bubbles.vel[i].x += radial.falloff[i] * radial.field[i].x;
@@ -116,6 +120,13 @@ const text = "\
 
 	const upwardSpeed = -0.15;
 	let upwardField = new LinearField(new Point(0.0, upwardSpeed));
+
+	let cursorField = new LinearField(new Point(0.0, 0.0));
+	const innerRadius = -0.1;
+	const outerRadius = 0.5;
+	let cursorFalloff = new RadialFalloff(
+		new Point(0.0, 0.0),
+		innerRadius, outerRadius, new Point(0.0, 0.0));
 
 	bubbles.addPreAnimationCallback(preAnimation);
 	bubbles.addPostAnimationCallback(postAnimation);
@@ -143,13 +154,10 @@ const text = "\
 		cyPrev = cy;
 		cursorActive = (Number.parseInt(canvas.getAttribute(
 			"cursorActive") || "0") != 0);
-		let cursorField = new LinearField(new Point(vx, vy));
+		cursorField.setDirection(new Point(vx, vy));
 		let cursor = cursorField.evaluate(bubbles.pos);
-		const innerRadius = -0.1;
-		const outerRadius = 0.5;
-		let cursorFalloff = new RadialFalloff(
-			new Point(cx / w, cy / h),
-			innerRadius, outerRadius, new Point(w, h));
+		cursorFalloff.setCenter(new Point(cx / w, cy / h));
+		cursorFalloff.setScreenSize(new Point(w, h));
 		let falloff = cursorFalloff.evaluate(bubbles.pos);
 		if (vx * vx + vy * vy > 0) {
 			for (var i = 0; i < bubbles.pos.length; i++) {
