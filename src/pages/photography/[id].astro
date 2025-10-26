@@ -1,0 +1,211 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import NavBar from '../../components/NavBar.astro';
+
+const { id } = Astro.params;
+export const prerender = false;
+---
+
+<Layout title="Photography">
+  <main>
+    <NavBar />
+    <div class="lightbox" data-id={id}>
+      <div class="controls">
+        <button id="back" aria-label="Back to gallery">⟵ Back</button>
+        <div class="spacer"></div>
+        <button id="prev" aria-label="Previous">⟨</button>
+        <button id="next" aria-label="Next">⟩</button>
+      </div>
+      <div class="viewport">
+        <img id="photo" alt="photo" />
+      </div>
+      <div id="status" class="status" aria-live="polite"></div>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  main {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    color: white;
+    background-color: #000;
+  }
+  .lightbox {
+    box-sizing: border-box;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding-top: 4.5rem; /* space for navbar */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 5vw 0.5rem;
+  }
+  .controls button {
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 0.45rem 0.8rem;
+    font-size: 1rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .controls button:hover { background: rgba(255,255,255,0.15); }
+  .controls .spacer { flex: 1; }
+  .viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0; /* allow child to size */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5vw 5vh;
+  }
+  #photo {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* show as large as possible */
+    border-radius: 6px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  }
+  .status { text-align: center; padding: 0.5rem; opacity: 0.8; }
+</style>
+
+<script>
+  type ImgItem = { id: string, filename?: string, variants?: string[] };
+
+  const container = document.querySelector('.lightbox') as HTMLDivElement | null;
+  const startingId = container?.dataset.id || '';
+  const imgEl = document.getElementById('photo') as HTMLImageElement | null;
+  const statusEl = document.getElementById('status') as HTMLDivElement | null;
+  const prevBtn = document.getElementById('prev') as HTMLButtonElement | null;
+  const nextBtn = document.getElementById('next') as HTMLButtonElement | null;
+  const backBtn = document.getElementById('back') as HTMLButtonElement | null;
+
+  let images: ImgItem[] = [];
+  let index = -1;
+
+  function pickLargeVariant(item: ImgItem): string {
+    const vs = Array.isArray(item.variants) ? item.variants : [];
+    if (vs.length === 0) return '';
+    // Heuristic: prefer last item (often largest), else first
+    return vs[vs.length - 1] || vs[0];
+  }
+
+  function preload(src: string) {
+    if (!src) return;
+    const im = new Image();
+    im.src = src;
+  }
+
+  function preloadAround(i: number) {
+    if (images.length === 0) return;
+    const left = (i - 1 + images.length) % images.length;
+    const right = (i + 1) % images.length;
+    preload(pickLargeVariant(images[left]));
+    preload(pickLargeVariant(images[right]));
+  }
+
+  function updateStatus() {
+    if (!statusEl) return;
+    if (index >= 0 && images.length > 0) {
+      statusEl.textContent = `${index + 1} / ${images.length}`;
+    } else {
+      statusEl.textContent = '';
+    }
+  }
+
+  function show(i: number) {
+    if (!imgEl) return;
+    if (i < 0 || i >= images.length) return;
+    index = i;
+    const item = images[index];
+    const url = pickLargeVariant(item);
+    imgEl.src = url;
+    imgEl.alt = item.filename || item.id;
+    updateStatus();
+    preloadAround(index);
+    // Update URL so direct linking works
+    const newUrl = `/photography/${encodeURIComponent(item.id)}`;
+    if (window.location.pathname !== newUrl) {
+      window.history.replaceState({}, '', newUrl);
+    }
+  }
+
+  function go(delta: number) {
+    if (images.length === 0) return;
+    const n = (index + delta + images.length) % images.length;
+    show(n);
+  }
+
+  async function bootstrap() {
+    try {
+      // Try to load from sessionStorage first (cached by gallery)
+      try {
+        const cached = sessionStorage.getItem('cf_images');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            images = parsed as ImgItem[];
+          }
+        }
+      } catch {}
+
+      // Fallback to API if no cache
+      if (!Array.isArray(images) || images.length === 0) {
+        const res = await fetch('/api/images');
+        if (!res.ok) throw new Error('Failed to load images');
+        const data: any = await res.json();
+        images = Array.isArray(data?.images) ? data.images : [];
+        try { sessionStorage.setItem('cf_images', JSON.stringify(images)); } catch {}
+      }
+      if (images.length === 0) throw new Error('No images');
+      const found = images.findIndex((it: ImgItem) => it.id === startingId);
+      const i = found >= 0 ? found : 0;
+      show(i);
+    } catch (e) {
+      if (statusEl) statusEl.textContent = 'Error loading image';
+      console.error(e);
+    }
+  }
+
+  // Button handlers
+  prevBtn?.addEventListener('click', () => go(-1));
+  nextBtn?.addEventListener('click', () => go(1));
+  backBtn?.addEventListener('click', () => {
+    if (document.referrer && document.referrer.includes('/photography')) {
+      history.back();
+    } else {
+      window.location.href = '/photography';
+    }
+  });
+
+  // Keyboard navigation
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(1);
+    if (e.key === 'Escape') {
+      if (document.referrer && document.referrer.includes('/photography')) {
+        history.back();
+      } else {
+        window.location.href = '/photography';
+      }
+    }
+  });
+
+  bootstrap();
+</script>
