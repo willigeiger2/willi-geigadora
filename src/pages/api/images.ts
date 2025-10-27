@@ -50,7 +50,11 @@ export async function GET() {
 
     return new Response(JSON.stringify({ images: all }), {
       status: 200,
-      headers: { "content-type": "application/json", "cache-control": "no-store" },
+      headers: {
+        "content-type": "application/json",
+        // Allow caching at the edge and browser; adjust TTLs as desired
+        "cache-control": "public, max-age=300, s-maxage=300, stale-while-revalidate=86400",
+      },
     });
   } catch (err: any) {
     return new Response(

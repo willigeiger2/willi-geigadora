@@ -4,16 +4,15 @@ layout: ../../layouts/MarkdownLayout.astro
 # Bio
 
 I was born in a small town in North Yorkshire, England,
-in the third quarter of the 20th century.
+in the second half of the 20th century.
 
 The first year of my life I remember was with a traveling circus in which my
-mother was the fire-eater. I think it's given me a lifelong love of spectacle.
+mother was the fire-eater. It's given me a lifelong love of spectacle.
 
 When I was a little older, I moved to Edinburgh, Scotland,
 my adopted hometown.
-
-I saw a movie called _"Star Wars,"_
-that changed my life.
+Soon after I moved there, a movie called _"Star Wars"_
+became a huge hit, and literally changed my life.
 Some of my friends wanted to be Princess Leia or Luke Skywalker,
 but I dreamed of creating those alien worlds and creatures.
 
