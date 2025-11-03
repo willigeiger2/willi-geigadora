@@ -29,3 +29,6 @@ pnpm-debug.log*
 !.dev.vars.example
 .env*
 !.env.example
+
+# misc output files
+results.json

@@ -1,0 +1,27 @@
+name = "image-classifier-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+
+[ai]
+# This binds the Workers AI service to env.AI
+binding = "AI"
+
+[vars]
+# Optionally expose non-secret config here
+LABELS = "People, Pets, Wildlife, Landscape, Urban"
+CF_ACCOUNT_ID = "3ce0a7682b4404afc52b42b6af1152b4" # Set your Cloudflare Account ID (required for /batch Images API)
+PREFERRED_VARIANTS = "480contain,public" # Order matters; used by /batch to choose image variants
+
+[observability]
+enabled = false
+
+[dev]
+port = 8787
+
+[placement]
+mode = "smart"
+
+[[d1_databases]]
+binding = "CLASSIFIER_DB"           # Available in env.CLASSIFIER_DB
+database_name = "classifier_db"      # Change if you prefer a different name
+database_id = "a4481b88-4c1f-465f-b8d5-253bb94e1d06"   # Run `wrangler d1 create classifier_db` and paste the returned id here
