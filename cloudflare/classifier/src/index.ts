@@ -2,6 +2,7 @@ export interface Env {
   AI: Ai;
   CLASSIFY_TOKEN: string;
   LABELS?: string;
+  LABEL_HINTS?: string; // optional semicolon-separated hints merged into LLaVA prompt
   // Batch + storage
   CLASSIFIER_DB: D1Database;
   CF_ACCOUNT_ID: string; // for Images API
@@ -47,7 +48,13 @@ const DEFAULT_LABELS = [
 function parseLabels(env: Env): string[] {
   const s = env.LABELS?.trim();
   if (!s) return DEFAULT_LABELS;
-  return s.split(/\s*,\s*/).filter(Boolean);
+  const arr = s.split(',').map((x) => x.trim()).filter(Boolean);
+  return arr.length ? arr : DEFAULT_LABELS;
+}
+
+function parseLabelHints(env: Env): string {
+  const s = env.LABEL_HINTS?.trim();
+  return s || '';
 }
 
 function parsePreferredVariants(env: Env): string[] {
@@ -130,6 +137,55 @@ async function classifyWithResNet(env: Env, imageUrl: string): Promise<{ label: 
   const result: { label: string; score: number }[] = await (env.AI as any).run("@cf/microsoft/resnet-50", {
     image: Array.from(bytes),
   });
+  return result;
+}
+
+async function classifyWithLLaVA(env: Env, imageUrl: string, categories: string[], modelName: string): Promise<{ label: string; score: number }[]> {
+  const cats = categories && categories.length > 0 ? categories : DEFAULT_LABELS;
+  const format = cats.map((c) => `"${c}": <0..1>`).join(", ");
+  const hints = parseLabelHints(env);
+  const hintText = hints ? ` Definitions: ${hints}.` : '';
+  const prompt = `Classify this image into the following categories with a confidence from 0 to 1. Categories: ${cats.join(", ")}.${hintText} Return ONLY strict JSON with keys exactly these categories and numeric values between 0 and 1. Example: { ${format} }.`;
+  let raw: any;
+  try {
+    // Prefer URL input for multimodal VLMs on Workers AI
+    raw = await (env.AI as any).run(modelName, { image: imageUrl, prompt, temperature: 0 });
+  } catch (_e) {
+    // Fallback to bytes if URL input is not accepted
+    const image = await readImageAsArrayBuffer(imageUrl);
+    const bytes = new Uint8Array(image);
+    raw = await (env.AI as any).run(modelName, { image: Array.from(bytes), prompt, temperature: 0 });
+  }
+  const text: string = typeof raw === 'string' ? raw : (raw?.response ?? raw?.text ?? JSON.stringify(raw));
+  return parseScoresFromText(text, cats);
+}
+
+function parseScoresFromText(text: string, cats: string[]): { label: string; score: number }[] {
+  // Attempt 1: direct JSON
+  let obj: any = null;
+  try {
+    obj = JSON.parse(text);
+  } catch {}
+  // Some models wrap JSON inside a description field
+  if (obj && typeof obj === 'object' && typeof obj.description === 'string') {
+    const inner = obj.description;
+    try { obj = JSON.parse(inner); } catch { obj = null; }
+  }
+  // Attempt 2: extract first {...} block
+  if (!obj) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      const inner = text.slice(start, end + 1);
+      try { obj = JSON.parse(inner); } catch { obj = null; }
+    }
+  }
+  const result: { label: string; score: number }[] = [];
+  for (const k of cats) {
+    const v = Number(obj ? obj[k] : NaN);
+    const s = Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
+    result.push({ label: k, score: s });
+  }
   return result;
 }
 
@@ -487,6 +543,53 @@ export default {
       }
     }
 
+    if (pathname === "/_test_llava") {
+      try {
+        const imageUrl = url.searchParams.get("url");
+        if (!imageUrl) {
+          return new Response(JSON.stringify({ ok: false, error: "Missing required query param: url" }), { status: 400, headers: { "content-type": "application/json" } });
+        }
+        const model = url.searchParams.get("model") || "@cf/llava-hf/llava-1.5-7b-hf";
+        const cats = parseLabels(env);
+        const format = cats.map((c) => `"${c}": <0..1>`).join(", ");
+        const hints = parseLabelHints(env);
+        const hintText = hints ? ` Definitions: ${hints}.` : '';
+        const prompt = `Classify this image into the following categories with a confidence from 0 to 1. Categories: ${cats.join(", ")}.${hintText} Return ONLY strict JSON with keys exactly these categories and numeric values between 0 and 1. Example: { ${format} }.`;
+
+        let raw: any;
+        let used = "url";
+        try {
+          raw = await (env.AI as any).run(model, { image: imageUrl, prompt, temperature: 0 });
+        } catch (_e) {
+          used = "bytes";
+          const bytes = Array.from(new Uint8Array(await readImageAsArrayBuffer(imageUrl)));
+          raw = await (env.AI as any).run(model, { image: bytes, prompt, temperature: 0 });
+        }
+        const text: string = typeof raw === 'string' ? raw : (raw?.response ?? raw?.text ?? JSON.stringify(raw));
+        // Robust parse: JSON, then description inner JSON, then first {...} block
+        let parsedAny: any = null;
+        try { parsedAny = JSON.parse(text); } catch {}
+        if (parsedAny && typeof parsedAny === 'object' && typeof parsedAny.description === 'string') {
+          try { parsedAny = JSON.parse(parsedAny.description); } catch { parsedAny = null; }
+        }
+        if (!parsedAny) {
+          const start = text.indexOf('{');
+          const end = text.lastIndexOf('}');
+          if (start >= 0 && end > start) {
+            const inner = text.slice(start, end + 1);
+            try { parsedAny = JSON.parse(inner); } catch { parsedAny = null; }
+          }
+        }
+        const scores = cats.map((k) => ({ label: k, score: Math.max(0, Math.min(1, Number(parsedAny ? parsedAny[k] : 0) || 0)) }));
+        return new Response(
+          JSON.stringify({ ok: true, model, input: used, url: imageUrl, text, parsed: parsedAny || {}, scores }),
+          { headers: { "content-type": "application/json" } }
+        );
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: { "content-type": "application/json" } });
+      }
+    }
+
     if (pathname === "/results" && request.method === "GET") {
       try {
         if (!env.CLASSIFIER_DB) {
@@ -509,6 +612,8 @@ export default {
         await ensureSchema(env);
         const perPage = Math.min(parseInt(url.searchParams.get("per_page") || "50"), 100);
         const max = parseInt(url.searchParams.get("max") || "200");
+        const requestedModel = url.searchParams.get("model") || "@cf/microsoft/resnet-50";
+        const force = url.searchParams.get("force") === "1";
         const mode = (url.searchParams.get("mode") || "cursor").toLowerCase();
         let cursor = url.searchParams.get("start_cursor") || undefined;
         let page = parseInt(url.searchParams.get("start_page") || "0");
@@ -533,15 +638,17 @@ export default {
               errors.push({ imageId: img.id, error: "No variant URL" });
               continue;
             }
-            // Skip if already exists for this model
-            const modelName = "@cf/microsoft/resnet-50";
-            if (await existsClassification(env, img.id, modelName)) {
+            // Skip if already exists for this model (unless force)
+            const modelName = requestedModel;
+            if (!force && await existsClassification(env, img.id, modelName)) {
               skipped++;
               continue;
             }
             try {
               stage = "classify";
-              const result = await classifyWithResNet(env, variantUrl);
+              const result = requestedModel.startsWith("@cf/llava-hf/")
+                ? await classifyWithLLaVA(env, variantUrl, parseLabels(env), requestedModel)
+                : await classifyWithResNet(env, variantUrl);
               stage = "upsert";
               await upsertClassification(env, img.id, variantUrl, modelName, result);
               upserted++;
@@ -565,15 +672,17 @@ export default {
                 errors.push({ imageId: img.id, error: "No variant URL" });
                 continue;
               }
-              // Skip if already exists for this model
-              const modelName = "@cf/microsoft/resnet-50";
-              if (await existsClassification(env, img.id, modelName)) {
+              // Skip if already exists for this model (unless force)
+              const modelName = requestedModel;
+              if (!force && await existsClassification(env, img.id, modelName)) {
                 skipped++;
                 continue;
               }
               try {
                 stage = "classify";
-                const result = await classifyWithResNet(env, variantUrl);
+                const result = requestedModel.startsWith("@cf/llava-hf/")
+                  ? await classifyWithLLaVA(env, variantUrl, parseLabels(env), requestedModel)
+                  : await classifyWithResNet(env, variantUrl);
                 stage = "upsert";
                 await upsertClassification(env, img.id, variantUrl, modelName, result);
                 upserted++;
@@ -589,7 +698,7 @@ export default {
 
         return new Response(
           JSON.stringify({
-            model: "@cf/microsoft/resnet-50",
+            model: requestedModel,
             perPage,
             max,
             processed,
@@ -597,6 +706,7 @@ export default {
             skipped,
             errors,
             mode,
+            force,
             nextCursor: cursor || null,
             startPage: page > 0 ? page : undefined,
           }),

@@ -8,7 +8,8 @@ binding = "AI"
 
 [vars]
 # Optionally expose non-secret config here
-LABELS = "People, Pets, Wildlife, Landscape, Urban"
+LABELS = "People, Pets, Wildlife, Landscape, Urban, Architecture, Vehicles, Food, Night, Macro, Indoor, Outdoor, Portraits"
+LABEL_HINTS = "Urban: city/street context; Architecture: buildings or structures as subject; Macro: close-up detail; Indoor: shot inside; Outdoor: shot outside; Portraits: close-up of face(s) or a person clearly the main subject"
 CF_ACCOUNT_ID = "3ce0a7682b4404afc52b42b6af1152b4" # Set your Cloudflare Account ID (required for /batch Images API)
 PREFERRED_VARIANTS = "480contain,public" # Order matters; used by /batch to choose image variants
 
