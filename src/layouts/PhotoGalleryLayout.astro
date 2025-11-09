@@ -6,15 +6,16 @@ import NavBar from '../components/NavBar.astro';
 
 interface Props {
 	title: string;
+	category?: string;
+	minScore?: number;
 }
 
-const { title } = Astro.props;
+const { title, category, minScore = 0.5 } = Astro.props;
 ---
-
 <Layout title={title}>
   <main>
     <NavBar />
-    <div class="page">
+    <div class="page" data-category={category || ''} data-min-score={String(minScore)}>
       <div id="thumbs" class="thumbs" aria-live="polite"></div>
       <div id="sentinel" class="sentinel" aria-hidden="true"></div>
     </div>
@@ -208,6 +209,14 @@ const { title } = Astro.props;
   async function loadImages() {
     const container = document.getElementById('thumbs') as HTMLDivElement | null;
     if (container) container.innerHTML = '';
+    
+    // Read category and minScore from data attributes
+    const pageEl = document.querySelector('.page') as HTMLElement | null;
+    const category = pageEl?.dataset?.category || '';
+    const minScore = Number(pageEl?.dataset?.minScore || '0.5');
+    
+    console.log('Gallery loading with category:', category, 'minScore:', minScore);
+    
     try {
       // Try cache first
       try {
@@ -257,6 +266,53 @@ const { title } = Astro.props;
         const data: any = await res.json();
         images = (data && Array.isArray(data.images)) ? data.images : [];
         try { sessionStorage.setItem('cf_images_v3', JSON.stringify(images)); } catch {}
+      }
+
+      // Filter by category if specified
+      if (category && category !== 'all') {
+        console.log('Filtering by category:', category, 'with minScore:', minScore);
+        const filteredIds = new Set<string>();
+        let cursor: number | null = null;
+        let pageCount = 0;
+        
+        // Fetch all pages of results
+        do {
+          const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&category=${encodeURIComponent(category)}&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+          console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
+          const resultsRes = await fetch(resultsUrl);
+          if (!resultsRes.ok) throw new Error('Failed to load classification results');
+          const resultsData: any = await resultsRes.json();
+          
+          const itemCount = Array.isArray(resultsData.items) ? resultsData.items.length : 0;
+          
+          if (Array.isArray(resultsData.items)) {
+            for (const item of resultsData.items) {
+              // Check if this item has the category label with score >= minScore
+              if (item.image_id && Array.isArray(item.model_top)) {
+                const labelEntry = item.model_top.find((l: any) => l.label === category);
+                if (labelEntry && typeof labelEntry.score === 'number' && labelEntry.score >= minScore) {
+                  filteredIds.add(item.image_id);
+                }
+              }
+            }
+          }
+          
+          cursor = resultsData.nextCursor || null;
+          pageCount++;
+          console.log('Page', pageCount, '- items:', itemCount, '- total filtered so far:', filteredIds.size, '- nextCursor:', cursor);
+          
+          // Stop if this page returned no items
+          if (itemCount === 0) {
+            console.log('Stopping pagination: page returned no items');
+            break;
+          }
+        } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
+        
+        console.log('Filtered IDs count (score >=', minScore + '):', filteredIds.size, 'Total images:', images.length);
+        // Filter images to only those in the results
+        const beforeCount = images.length;
+        images = images.filter((img: ImgItem) => filteredIds.has(img.id));
+        console.log('After filtering:', images.length, 'images (was', beforeCount, ')');
       }
 
       rendered = 0;
