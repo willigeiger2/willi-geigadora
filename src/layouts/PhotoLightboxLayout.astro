@@ -1,0 +1,305 @@
+---
+import '../styles/global.css';
+import Layout from './Layout.astro';
+import NavBar from '../components/NavBar.astro';
+
+
+interface Props {
+	title: string;
+	id: string;
+}
+
+const { title, id } = Astro.props;
+export const prerender = false;
+---
+
+<Layout title={title}>
+  <main>
+    <NavBar />
+    <div class="page">
+      <div id="thumbs" class="thumbs" aria-live="polite"></div>
+      <div id="sentinel" class="sentinel" aria-hidden="true"></div>
+    </div>
+  </main>
+</Layout>
+
+<Layout title={title}>
+  <main>
+    <NavBar />
+    <div class="lightbox" data-id={id}>
+      <div class="controls">
+        <button id="back" aria-label="Back to gallery">⟵ Back</button>
+        <div class="spacer"></div>
+        <button id="prev" aria-label="Previous">⟨</button>
+        <button id="next" aria-label="Next">⟩</button>
+      </div>
+      <div class="viewport">
+        <img id="photo" alt="photo" />
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  main {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    color: white;
+    background-color: #000;
+  }
+  .lightbox {
+    box-sizing: border-box;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Shared offset so image top aligns with controls top,
+       and leaves a small gap under the navbar */
+    --lb-top: calc(4.5rem + 0.25rem);
+    padding-top: var(--lb-top);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .controls {
+    position: absolute;
+    top: var(--lb-top); /* align with viewport content top */
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 4vw;
+    z-index: 2;
+  }
+  .controls button {
+    background: rgba(0,0,0,0.5);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 0.45rem 0.8rem;
+    font-size: 1rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .controls button:hover { background: rgba(255,255,255,0.15); }
+  .controls .spacer { flex: 1; }
+  .viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0; /* allow child to size */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 0.5rem 0; /* leave a little space under the image */
+    /* Default: use JS-provided --vh for reliable iOS Chrome sizing */
+    height: calc((var(--vh, 1vh) * 100) - var(--lb-top));
+    /* Older WebKit fallback */
+    height: calc(-webkit-fill-available - var(--lb-top));
+    z-index: 1;
+  }
+  #photo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* show as large as possible */
+    border-radius: 6px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+  }
+
+  /* Use dynamic viewport units when supported to fill visible space */
+  @supports (height: 100dvh) {
+    .viewport { height: calc(100dvh - var(--lb-top)); }
+  }
+
+  /* Landscape tweaks: reduce padding to maximize image area */
+  @media (orientation: landscape) {
+    .lightbox { --lb-top: calc(3.5rem + 0.25rem); }
+    .controls { top: var(--lb-top); padding: 0.25rem 3vw; gap: 0.4rem; }
+    .controls button { padding: 0.35rem 0.7rem; font-size: 0.95rem; }
+    .viewport { padding-bottom: 0.5rem; }
+  }
+
+  /* Small screens portrait: slightly tighter controls */
+  @media (max-width: 450px) and (orientation: portrait) {
+    .controls { padding: 0.35rem 3vw; gap: 0.4rem; }
+    .controls button { padding: 0.4rem 0.7rem; font-size: 0.95rem; }
+    /* Ensure image top sits just below the buttons with a small gap */
+    .viewport { padding-top: calc(var(--controls-h, 0px) + 0.25rem); }
+  }
+</style>
+
+<style is:global>
+  /* Help iOS Chrome/Safari compute full height */
+  html, body { height: -webkit-fill-available; }
+</style>
+
+<script>
+  type ImgItem = { id: string, filename?: string, variants?: string[] };
+
+  const container = document.querySelector('.lightbox') as HTMLDivElement | null;
+  const startingId = container?.dataset.id || '';
+  const imgEl = document.getElementById('photo') as HTMLImageElement | null;
+  const prevBtn = document.getElementById('prev') as HTMLButtonElement | null;
+  const nextBtn = document.getElementById('next') as HTMLButtonElement | null;
+  const backBtn = document.getElementById('back') as HTMLButtonElement | null;
+
+  let images: ImgItem[] = [];
+  let index = -1;
+
+  // Reliable viewport height for iOS Chrome/Safari via CSS var --vh
+  function setVhVar() {
+    try {
+      const h = (window.visualViewport && typeof window.visualViewport.height === 'number')
+        ? window.visualViewport.height
+        : window.innerHeight;
+      const vh = h * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    } catch {}
+  }
+  setVhVar();
+  window.addEventListener('resize', setVhVar);
+  window.addEventListener('orientationchange', setVhVar);
+  window.addEventListener('pageshow', setVhVar);
+  // Update when browser UI shows/hides
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setVhVar);
+    window.visualViewport.addEventListener('scroll', setVhVar);
+  }
+
+  // Measure controls height so we can keep the image from overlapping it
+  const controlsEl = document.querySelector('.controls') as HTMLDivElement | null;
+  function setControlsHeightVar() {
+    try {
+      const h = controlsEl?.offsetHeight ?? 0;
+      // Set on the lightbox container so scoping is tight
+      (container as HTMLElement | null)?.style.setProperty('--controls-h', `${h}px`);
+    } catch {}
+  }
+  setControlsHeightVar();
+  window.addEventListener('resize', setControlsHeightVar);
+  window.addEventListener('orientationchange', setControlsHeightVar);
+  window.addEventListener('pageshow', setControlsHeightVar);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setControlsHeightVar);
+    window.visualViewport.addEventListener('scroll', setControlsHeightVar);
+  }
+
+  function pickLargeVariant(item: ImgItem): string {
+    const vs = Array.isArray(item.variants) ? item.variants : [];
+    if (vs.length === 0) return '';
+    // Avoid small thumbnail variants like 240contain
+    const nonThumb = vs.filter((u: string) => typeof u === 'string' && !u.includes('240contain'));
+    // Prefer a 'public' (original) style URL if present
+    const publicUrl = nonThumb.find((u: string) => u.includes('public'));
+    if (publicUrl) return publicUrl;
+    // Fallback: pick the last non-thumb (often the largest), else last of all
+    return nonThumb[nonThumb.length - 1] || vs[vs.length - 1] || vs[0];
+  }
+
+  function preload(src: string) {
+    if (!src) return;
+    const im = new Image();
+    im.src = src;
+  }
+
+  function preloadAround(i: number) {
+    if (images.length === 0) return;
+    const left = (i - 1 + images.length) % images.length;
+    const right = (i + 1) % images.length;
+    preload(pickLargeVariant(images[left]));
+    preload(pickLargeVariant(images[right]));
+  }
+
+  function show(i: number) {
+    if (!imgEl) return;
+    if (i < 0 || i >= images.length) return;
+    index = i;
+    const item = images[index];
+    const url = pickLargeVariant(item);
+    imgEl.src = url;
+    imgEl.alt = item.filename || item.id;
+    preloadAround(index);
+    // Update URL so direct linking works
+    const newUrl = `/photography/${encodeURIComponent(item.id)}`;
+    if (window.location.pathname !== newUrl) {
+      window.history.replaceState({}, '', newUrl);
+    }
+  }
+
+  function go(delta: number) {
+    if (images.length === 0) return;
+    const n = (index + delta + images.length) % images.length;
+    show(n);
+  }
+
+  async function bootstrap() {
+    try {
+      // Try to load from sessionStorage first (cached by gallery)
+      try {
+        let cached = sessionStorage.getItem('cf_images_v3');
+        if (!cached) {
+          const v2 = sessionStorage.getItem('cf_images_v2');
+          const v1 = sessionStorage.getItem('cf_images');
+          cached = v2 || v1 || null as any;
+        }
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            images = parsed as ImgItem[];
+          }
+        }
+      } catch {}
+
+      // Fallback to API if no cache
+      if (!Array.isArray(images) || images.length === 0) {
+        const res = await fetch(`/api/images?ts=${Date.now()}`, { cache: 'no-store' as RequestCache });
+        if (!res.ok) throw new Error('Failed to load images');
+        const data: any = await res.json();
+        images = Array.isArray(data?.images) ? data.images : [];
+        try {
+          sessionStorage.setItem('cf_images_v3', JSON.stringify(images));
+          sessionStorage.removeItem('cf_images');
+          sessionStorage.removeItem('cf_images_v2');
+        } catch {}
+      }
+      if (images.length === 0) throw new Error('No images');
+      const found = images.findIndex((it: ImgItem) => it.id === startingId);
+      const i = found >= 0 ? found : 0;
+      show(i);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Button handlers
+  prevBtn?.addEventListener('click', () => go(-1));
+  nextBtn?.addEventListener('click', () => go(1));
+  backBtn?.addEventListener('click', () => {
+    if (document.referrer && document.referrer.includes('/photography')) {
+      history.back();
+    } else {
+      window.location.href = '/photography';
+    }
+  });
+
+  // Keyboard navigation
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(1);
+    if (e.key === 'Escape') {
+      if (document.referrer && document.referrer.includes('/photography')) {
+        history.back();
+      } else {
+        window.location.href = '/photography';
+      }
+    }
+  });
+
+  bootstrap();
+</script>
