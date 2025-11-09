@@ -275,44 +275,92 @@ const { title, category, minScore = 0.5 } = Astro.props;
         let cursor: number | null = null;
         let pageCount = 0;
         
-        // Fetch all pages of results
-        do {
-          const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&category=${encodeURIComponent(category)}&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
-          console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
-          const resultsRes = await fetch(resultsUrl);
-          if (!resultsRes.ok) throw new Error('Failed to load classification results');
-          const resultsData: any = await resultsRes.json();
+        if (category === 'none') {
+          // Special case: find images that DON'T have ANY label with score >= minScore
+          console.log('Finding images without any strong labels (score <', minScore, ')');
+          const excludeIds = new Set<string>();
           
-          const itemCount = Array.isArray(resultsData.items) ? resultsData.items.length : 0;
-          
-          if (Array.isArray(resultsData.items)) {
-            for (const item of resultsData.items) {
-              // Check if this item has the category label with score >= minScore
-              if (item.image_id && Array.isArray(item.model_top)) {
-                const labelEntry = item.model_top.find((l: any) => l.label === category);
-                if (labelEntry && typeof labelEntry.score === 'number' && labelEntry.score >= minScore) {
-                  filteredIds.add(item.image_id);
+          // Fetch all results without category filter
+          do {
+            const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+            console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
+            const resultsRes = await fetch(resultsUrl);
+            if (!resultsRes.ok) throw new Error('Failed to load classification results');
+            const resultsData: any = await resultsRes.json();
+            
+            const itemCount = Array.isArray(resultsData.items) ? resultsData.items.length : 0;
+            
+            if (Array.isArray(resultsData.items)) {
+              for (const item of resultsData.items) {
+                // Check if this item has ANY label with score >= minScore
+                if (item.image_id && Array.isArray(item.model_top)) {
+                  const hasStrongLabel = item.model_top.some((l: any) => 
+                    typeof l.score === 'number' && l.score >= minScore
+                  );
+                  if (hasStrongLabel) {
+                    excludeIds.add(item.image_id);
+                  }
                 }
               }
             }
-          }
+            
+            cursor = resultsData.nextCursor || null;
+            pageCount++;
+            console.log('Page', pageCount, '- items:', itemCount, '- excluded so far:', excludeIds.size, '- nextCursor:', cursor);
+            
+            // Stop if this page returned no items
+            if (itemCount === 0) {
+              console.log('Stopping pagination: page returned no items');
+              break;
+            }
+          } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
           
-          cursor = resultsData.nextCursor || null;
-          pageCount++;
-          console.log('Page', pageCount, '- items:', itemCount, '- total filtered so far:', filteredIds.size, '- nextCursor:', cursor);
+          console.log('Excluded IDs count (have label with score >=', minScore + '):', excludeIds.size);
+          // Filter to images NOT in the exclude set
+          const beforeCount = images.length;
+          images = images.filter((img: ImgItem) => !excludeIds.has(img.id));
+          console.log('After filtering:', images.length, 'images without strong labels (was', beforeCount, ')');
+        } else {
+          // Normal category filtering
+          // Fetch all pages of results
+          do {
+            const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&category=${encodeURIComponent(category)}&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+            console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
+            const resultsRes = await fetch(resultsUrl);
+            if (!resultsRes.ok) throw new Error('Failed to load classification results');
+            const resultsData: any = await resultsRes.json();
+            
+            const itemCount = Array.isArray(resultsData.items) ? resultsData.items.length : 0;
+            
+            if (Array.isArray(resultsData.items)) {
+              for (const item of resultsData.items) {
+                // Check if this item has the category label with score >= minScore
+                if (item.image_id && Array.isArray(item.model_top)) {
+                  const labelEntry = item.model_top.find((l: any) => l.label === category);
+                  if (labelEntry && typeof labelEntry.score === 'number' && labelEntry.score >= minScore) {
+                    filteredIds.add(item.image_id);
+                  }
+                }
+              }
+            }
+            
+            cursor = resultsData.nextCursor || null;
+            pageCount++;
+            console.log('Page', pageCount, '- items:', itemCount, '- total filtered so far:', filteredIds.size, '- nextCursor:', cursor);
+            
+            // Stop if this page returned no items
+            if (itemCount === 0) {
+              console.log('Stopping pagination: page returned no items');
+              break;
+            }
+          } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
           
-          // Stop if this page returned no items
-          if (itemCount === 0) {
-            console.log('Stopping pagination: page returned no items');
-            break;
-          }
-        } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
-        
-        console.log('Filtered IDs count (score >=', minScore + '):', filteredIds.size, 'Total images:', images.length);
-        // Filter images to only those in the results
-        const beforeCount = images.length;
-        images = images.filter((img: ImgItem) => filteredIds.has(img.id));
-        console.log('After filtering:', images.length, 'images (was', beforeCount, ')');
+          console.log('Filtered IDs count (score >=', minScore + '):', filteredIds.size, 'Total images:', images.length);
+          // Filter images to only those in the results
+          const beforeCount = images.length;
+          images = images.filter((img: ImgItem) => filteredIds.has(img.id));
+          console.log('After filtering:', images.length, 'images (was', beforeCount, ')');
+        }
       }
 
       rendered = 0;
