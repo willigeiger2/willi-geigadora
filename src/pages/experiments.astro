@@ -1,22 +1,35 @@
 ---
-import Layout from '../layouts/Layout.astro';
 import InteractiveCanvas from '../components/InteractiveCanvas.astro';
+import Heading1Card from '../components/Heading1Card.astro';
+import NavBar from '../components/NavBar.astro';
+import TextCard from '../components/TextCard.astro';
+import VideoFill from '../components/VideoFill.astro';
+import FullscreenLayout from '../layouts/FullscreenLayout.astro';
+import Layout from '../layouts/Layout.astro';
+import CenteredOverlay from '../layouts/CenteredOverlay.astro';
+import ExperimentCard from '../components/ExperimentCard.astro';
+
+const title = "Experiments";
+const videoBg = { src: "/images/looping-ripples.mp4", type: "video/mp4" };
 ---
 
-<Layout title="Smoky">
+<Layout title={title}>
 	<main>
-		<div class="fullscreen-bg">
-		    <video
-		      class="video-fill"
-		      autoplay
-		      playsinline
-		      muted
-		      loop
-		    >
-		      <source src="/images/looping-ripples.mp4" type="video/mp4" />
-		    </video>
-		    <InteractiveCanvas id="overlay"></InteractiveCanvas>
-		  </div>
+		<FullscreenLayout>
+			<NavBar></NavBar>
+		    <VideoFill
+		      	src={videoBg.src}
+				type={videoBg.type}
+			></VideoFill>
+		<InteractiveCanvas id="overlay"></InteractiveCanvas>
+		<CenteredOverlay>
+			<ExperimentCard
+				heading="Angel & Demon"
+				text="What's better than asking an AI for advice? Asking two AIs! Get a two-sided opinion."
+				link="https://angel-and-demon.geigadora.com/"
+				></ExperimentCard>
+		</CenteredOverlay>
+		</FullscreenLayout>
 	</main>
 </Layout>
 
@@ -135,7 +148,7 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 	var plasticity = maxPlasticity;
 
 	var bubbles: ParticleSystem = new ParticleSystem();
-	bubbles.createGrid(50, 50);
+	bubbles.createGrid(70, 70);
 
 	for (var i = 0; i < bubbles.pos.length; i++) {
 		initRadius(i);
@@ -163,7 +176,7 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 
 	function mousedown(e: MouseEvent) {
 		explode(e.clientX / canvas.clientWidth,
-			    e.clientY / canvas.clientHeight, 0.2);
+			    e.clientY / canvas.clientHeight, 0.5);
 	}
 
 	function touchstart(e: TouchEvent) {
@@ -171,7 +184,7 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 			return;
 		}
 		explode(e.touches[0].clientX / canvas.clientWidth,
-			    e.touches[0].clientY / canvas.clientHeight, 0.2);
+			    e.touches[0].clientY / canvas.clientHeight, 0.5);
 	}
 
 	function explode(x: number, y: number, force: number) {
@@ -192,12 +205,12 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 	var exploderGrowth = [];
 	var exploders = [];
 	var exploderHalos = [];
-	initExploders(1);
+	//initExploders(1);
 
-	const wrapLeft = -0.05;
-	const wrapRight = -0.05;
-	const wrapTop = -0.05;
-	const wrapBottom = -0.05;
+	const wrapLeft = -0.00;
+	const wrapRight = -0.00;
+	const wrapTop = -0.00;
+	const wrapBottom = -0.00;
 
 	function wrapPoint(p: Point): Point {
 		var px = p.x;
@@ -243,10 +256,10 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 
 		plasticity += dt * plasticityDelta;
 		plasticity = Math.min(Math.max(plasticity, minPlasticity), maxPlasticity);
-		const plasticBlend = 1.0 - Math.pow(1.0 - plasticity, dt);
+		const plasticBlend = (plasticity > 0.0) ? 1.0 - Math.pow(1.0 - plasticity, dt) : 0.0;
 
-		const mx = Number.parseFloat(canvas.getAttribute("mouseX"));
-		const my = Number.parseFloat(canvas.getAttribute("mouseY"));
+		const mx = Number.parseFloat(canvas.getAttribute("cursorX"));
+		const my = Number.parseFloat(canvas.getAttribute("cursorY"));
 		const vx = mouseActive ? (mx - mxPrev) / w / dt : 0.0;
 		const vy = mouseActive ? (my - myPrev) / h / dt : 0.0;
 		mxPrev = mx;
@@ -256,16 +269,18 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			// Velocity from pushers
+		if (tNow > freezeTime) {
 			for (var n = 0; n < numPushers; n++) {
-				var dx = bubbles.pos[i].x - bubbles.pos[pushers[n]].x;
-				var dy = bubbles.pos[i].y - bubbles.pos[pushers[n]].y;
-				if (dx >  0.5) dx -= 1.0;
-				if (dx < -0.5) dx += 1.0;
-				if (dy >  0.5) dy -= 1.0;
-				if (dy < -0.5) dy += 1.0;
-				const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.001);
-				bubbles.vel[i].x += dt * pusherForces[n] * dx / (d * d);
-				bubbles.vel[i].y += dt * pusherForces[n] * dy / (d * d);
+					var dx = bubbles.pos[i].x - bubbles.pos[pushers[n]].x;
+					var dy = bubbles.pos[i].y - bubbles.pos[pushers[n]].y;
+					if (dx >  0.5) dx -= 1.0;
+					if (dx < -0.5) dx += 1.0;
+					if (dy >  0.5) dy -= 1.0;
+					if (dy < -0.5) dy += 1.0;
+					const d = Math.max(Math.sqrt(dx * dx + dy * dy), 0.001);
+					bubbles.vel[i].x += dt * pusherForces[n] * dx / (d * d);
+					bubbles.vel[i].y += dt * pusherForces[n] * dy / (d * d);
+				}
 			}
 
 			if (true) {
@@ -277,7 +292,7 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 				if (dy >  0.5) dy -= 1.0;
 				if (dy < -0.5) dy += 1.0;
 				const Cd = 1.0;
-				const falloff = 5.0;
+				const falloff = 10.0;
 				const d = Math.sqrt(dx * dx + dy * dy);
 				const k = Math.pow(1.0 - Cd / (falloff * d + 1.0), dt);
 				if (Math.abs(vx) > 0.0) {
@@ -288,8 +303,9 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 				}
 
 				// Plasiticity
-				if (bubbles.pos[i].x > 0 && bubbles.pos[i].x < 1.0 &&
-					bubbles.pos[i].y > 0 && bubbles.pos[i].y < 1.0) {
+				if (plasticity > 0.0 &&
+						bubbles.pos[i].x > 0 && bubbles.pos[i].x < 1.0 &&
+						bubbles.pos[i].y > 0 && bubbles.pos[i].y < 1.0) {
 					bubbles.rst[i].x += plasticBlend * (bubbles.pos[i].x - bubbles.rst[i].x);
 					bubbles.rst[i].y += plasticBlend * (bubbles.pos[i].y - bubbles.rst[i].y);
 				}
@@ -298,9 +314,22 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 				bubbles.vel[i].x += spring * dt * (bubbles.rst[i].x - bubbles.pos[i].x);
 				bubbles.vel[i].y += spring * dt * (bubbles.rst[i].y - bubbles.pos[i].y);
 
-				const brownian = 1.0 * 0.5;
+				const brownian = 0.2;
 				bubbles.vel[i].x += brownian * dt * (Math.random() - 0.5);
 				bubbles.vel[i].y += brownian * dt * (Math.random() - 0.5);
+
+				if (tNow > freezeTime) {
+					const waveMagX = 0.02;
+					const waveMagY = 0.02;
+					const waveSizeX = 0.05;
+					const waveSizeY = 0.05;
+					const waveSpeedX = 1.0;
+					const waveSpeedY = 1.37;
+					bubbles.vel[i].x += waveMagX * dt *
+						Math.cos(bubbles.pos[i].x / waveSizeX + waveSpeedX * tNow);
+					bubbles.vel[i].y += waveMagY * dt *
+						Math.cos(bubbles.pos[i].y / waveSizeY + waveSpeedY * tNow);
+				}
 
 				var explosion = false;
 				for (var e = 0; e < exploders.length; e++) {
@@ -367,11 +396,11 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 			const hue = Math.atan2(bubbles.vel[i].y,
 			                       bubbles.vel[i].x) / (2 * Math.PI) + 0.5;
 			const sat = Math.min(
-				0.5 * Math.pow(bubbles.vel[i].x * bubbles.vel[i].x +
+				0.4 * Math.pow(bubbles.vel[i].x * bubbles.vel[i].x +
 						       bubbles.vel[i].y * bubbles.vel[i].y, 0.1), 1.0);
 			const val = 1.0;
 			const rgb = hsv2rgb(hue, sat, val);
-			const a = 0.125;
+			const a = 0.1;
 			c.fillStyle = "rgba(" + rgb[0] + ", " + rgb[1] + ", " + rgb[2] +
 			                    ", " + a + ")";
 			c.beginPath();
@@ -400,7 +429,7 @@ import InteractiveCanvas from '../components/InteractiveCanvas.astro';
 			}
 		}
 
-		if (tNow >= freezeTime && tNow - dt < freezeTime) {
+		if (tNow >= freezeTime && tNow < freezeTime + dt) {
 			for (var i = 0; i < bubbles.pos.length; i++) {
 				bubbles.rst[i].x = bubbles.pos[i].x;
 				bubbles.rst[i].y = bubbles.pos[i].y;

@@ -33,3 +33,7 @@ code {
 		Courier New,
 		monospace;
 }
+a {
+	color: inherit;
+	text-decoration: none;
+}

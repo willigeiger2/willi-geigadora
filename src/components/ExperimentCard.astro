@@ -1,0 +1,49 @@
+---
+import '../styles/global.css';
+
+interface Props {
+	heading: string;
+	text: string;
+    link: string;
+}
+
+const { heading, text, link } = Astro.props;
+---
+
+<a href={link}>
+    <div>
+        <h1>{heading}</h1>
+        <p>{text}</p>
+    </div>
+</a>
+
+<style>
+    a {
+        border-radius: 0.5rem;
+        border: 2px;
+        border-color: rgba(160, 160, 160, 0.7);
+        border-style: solid;
+        box-sizing: border-box; 
+        margin-top: 0;
+        display: inline-block;
+        pointer-events: auto;
+    }
+	div {
+		background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.0));
+		transition: background 0.3s ease;
+		padding: 0.01rem 1rem;
+		border-radius: 0.5rem;
+		box-sizing: border-box;
+	}
+	a:hover div {
+		background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.05));
+	}
+	h1 {
+		font-size: 2rem;
+		padding: 0;
+		margin: 0;
+	}
+	p {
+		font-size: 1rem;
+	}
+</style>

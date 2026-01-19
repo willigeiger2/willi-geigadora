@@ -25,7 +25,7 @@ warehouse in the heart of SOMA, near the SF Giants ballpark.
 Coffee shops on every corner bustling with tech entrepreneurs
 and their Macbooks.
 
-When _Heirloom_ was acquired, I surrendered to Silicon Valley big tech. I helped get YouTube running on hundreds of millions of smart TVs,
+When _Heirloom_ was acquired, I assimilated into Silicon Valley big tech. I helped get YouTube running on hundreds of millions of smart TVs,
 games consoles and set-top boxes. I led the team that developed the camera, editing and effects for YouTube Shorts. I spent some time at Netflix helping build a virtual animation studio in the cloud.
 
 Now I lead engineering for Cloudflare's Media Platform: Images, Stream,
