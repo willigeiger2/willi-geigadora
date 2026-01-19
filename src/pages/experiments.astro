@@ -6,7 +6,7 @@ import TextCard from '../components/TextCard.astro';
 import VideoFill from '../components/VideoFill.astro';
 import FullscreenLayout from '../layouts/FullscreenLayout.astro';
 import Layout from '../layouts/Layout.astro';
-import CenteredOverlay from '../layouts/CenteredOverlay.astro';
+import GridOverlay from '../layouts/GridOverlay.astro';
 import ExperimentCard from '../components/ExperimentCard.astro';
 
 const title = "Experiments";
@@ -22,13 +22,18 @@ const videoBg = { src: "/images/looping-ripples.mp4", type: "video/mp4" };
 				type={videoBg.type}
 			></VideoFill>
 		<InteractiveCanvas id="overlay"></InteractiveCanvas>
-		<CenteredOverlay>
+		<GridOverlay>
 			<ExperimentCard
 				heading="Angel & Demon"
 				text="What's better than asking an AI for advice? Asking two AIs! Get a two-sided opinion."
 				link="https://angel-and-demon.geigadora.com/"
 				></ExperimentCard>
-		</CenteredOverlay>
+			<ExperimentCard
+				heading="Magic Mirror"
+				text="Webcam rendered via a WebGL shader, allowing programmatic modification."
+				link="https://magic-mirror.geigadora.com/"
+				></ExperimentCard>
+		</GridOverlay>
 		</FullscreenLayout>
 	</main>
 </Layout>

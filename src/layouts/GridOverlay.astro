@@ -1,9 +1,9 @@
-<div class = "centered-overlay">
+<div class = "grid-overlay">
 	<slot />
 </div>
 
 <style>
-	.centered-overlay {
+	.grid-overlay {
 		background-color: rgba(0, 0, 0, 0);
 		position: absolute;
 		top: 0;
@@ -13,11 +13,13 @@
 		width: 80%;
         margin: auto;
 		overflow:hidden;
-  		display: flex;
-		justify-content: center;
-		align-items: center;
+  		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 2rem;
+		align-content: center;
+		justify-items: center;
         box-sizing: border-box; 
-        padding: 0;
+        padding: 2rem;
 		pointer-events: none;
 	}
 </style>
