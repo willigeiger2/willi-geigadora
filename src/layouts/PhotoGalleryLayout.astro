@@ -1,0 +1,376 @@
+---
+import '../styles/global.css';
+import Layout from './Layout.astro';
+import NavBar from '../components/NavBar.astro';
+
+
+interface Props {
+	title: string;
+	category?: string;
+	minScore?: number;
+}
+
+const { title, category, minScore = 0.5 } = Astro.props;
+---
+<Layout title={title}>
+  <main>
+    <NavBar />
+    <div class="page" data-category={category || ''} data-min-score={String(minScore)}>
+      <div id="thumbs" class="thumbs" aria-live="polite"></div>
+      <div id="sentinel" class="sentinel" aria-hidden="true"></div>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  main {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    color: white;
+    background-color: #000;
+  }
+  .page {
+    box-sizing: border-box;
+    padding: 5.5rem 5vw 2rem; /* account for fixed navbar */
+  }
+  @media (max-width: 450px) {
+    .page {
+      padding: 4.5rem 2vw 1rem;
+    }
+  }
+  h1 {
+    margin: 0 0 1rem 0;
+    font-weight: 600;
+  }
+  .thumbs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumb-min, 240px), 1fr));
+    gap: 0.5rem;
+    align-items: start;
+  }
+  .thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 4px;
+    background: rgba(0,0,0,0.2);
+    overflow: hidden; /* contain content */
+    transform-origin: center;
+  }
+  .thumb img {
+    display: block;
+    height: var(--thumb-h, 240px); /* fixed height via CSS var */
+    width: auto; /* preserve aspect ratio */
+    max-width: var(--thumb-h, 240px);
+    object-fit: contain; /* do not crop */
+    border-radius: 4px;
+    transition: transform 120ms ease;
+  }
+  .thumb:hover img { transform: scale(1.03); }
+  .sentinel { height: 1px; }
+</style>
+
+<style is:global>
+  html, body {
+    background-color: #000;
+    background-image: none;
+  }
+  /* Make gallery styles global so dynamically-created nodes are styled */
+  :root {
+    --thumb-h: 160px;
+    --thumb-min: 160px;
+  }
+  .thumbs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumb-min, 240px), 1fr));
+    gap: 0.5rem;
+    align-items: start;
+  }
+  .thumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    padding: 4px;
+    background: rgba(0,0,0,0.2);
+    transition: transform 120ms ease;
+    overflow: hidden;
+    transform-origin: center;
+  }
+  .thumb:hover { transform: scale(1.03); }
+  .thumb img {
+    display: block;
+    height: var(--thumb-h, 240px);
+    width: auto;
+    max-width: var(--thumb-h, 240px);
+    object-fit: contain;
+    border-radius: 4px;
+  }
+
+  /* Responsive tweaks for small iPhone widths */
+  @media (max-width: 450px) and (orientation: portrait) { /* small phones portrait */
+    :root {
+      --thumb-h: 120px; /* aim for 3 across */
+      --thumb-min: 120px;
+    }
+    .thumbs { gap: 0.375rem; }
+    .thumb { padding: 2px; border-width: 1px; border-color: rgba(255,255,255,0.15); }
+  }
+</style>
+
+<script>
+  type ImgItem = { id: string, filename?: string, variants?: string[] };
+
+  let images: ImgItem[] = [];
+  let rendered = 0;
+  const BATCH_SIZE = 60;
+
+  function pickThumbVariant(item: ImgItem): string {
+    const vs = Array.isArray(item.variants) ? item.variants : [];
+    if (vs.length === 0) return '';
+    // Prefer smallest first for base src
+    const v160 = vs.find((u: string) => typeof u === 'string' && u.includes('160contain'));
+    if (v160) return v160;
+    const v240 = vs.find((u: string) => typeof u === 'string' && u.includes('240contain'));
+    if (v240) return v240;
+    const v320 = vs.find((u: string) => typeof u === 'string' && u.includes('320contain'));
+    if (v320) return v320;
+    const v480 = vs.find((u: string) => typeof u === 'string' && u.includes('480contain'));
+    if (v480) return v480;
+    // Otherwise avoid the 'public' (large/original) URL and pick first non-public
+    const nonPublic = vs.filter((u: string) => typeof u === 'string' && !u.includes('public'));
+    if (nonPublic.length > 0) return nonPublic[0];
+    // Fallback
+    return vs[0] || vs[vs.length - 1];
+  }
+
+  function buildThumbSrcSet(item: ImgItem): string {
+    const vs = Array.isArray(item.variants) ? item.variants : [];
+    const v160 = vs.find((u: string) => typeof u === 'string' && u.includes('160contain'));
+    const v320 = vs.find((u: string) => typeof u === 'string' && u.includes('320contain'));
+    const v480 = vs.find((u: string) => typeof u === 'string' && u.includes('480contain'));
+    const parts: string[] = [];
+    if (v160) parts.push(`${v160} 1x`);
+    if (v320) parts.push(`${v320} 2x`);
+    if (v480) parts.push(`${v480} 3x`);
+    return parts.join(', ');
+  }
+
+  function renderBatch() {
+    const container = document.getElementById('thumbs') as HTMLDivElement | null;
+    if (!container) return;
+    const end = Math.min(rendered + BATCH_SIZE, images.length);
+    const frag = document.createDocumentFragment();
+    for (let i = rendered; i < end; i++) {
+      const img = images[i] as any;
+      const a = document.createElement('a');
+      a.href = `/photography/${encodeURIComponent(img.id)}`;
+      a.className = 'thumb';
+      const el = document.createElement('img');
+      el.loading = 'lazy';
+      el.alt = img.filename || img.id;
+      const base = pickThumbVariant(img);
+      el.src = base;
+      const ss = buildThumbSrcSet(img);
+      if (ss) {
+        el.setAttribute('srcset', ss);
+        // DPR-based selection doesn't require sizes; we can omit or set to 100vw
+      }
+      a.appendChild(el);
+      frag.appendChild(a);
+    }
+    container.appendChild(frag);
+    rendered = end;
+  }
+
+  function setupObserver() {
+    const sentinel = document.getElementById('sentinel');
+    if (!sentinel) return;
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          if (rendered < images.length) {
+            renderBatch();
+          }
+        }
+      }
+    });
+    io.observe(sentinel);
+  }
+
+  async function loadImages() {
+    const container = document.getElementById('thumbs') as HTMLDivElement | null;
+    if (container) container.innerHTML = '';
+    
+    // Read category and minScore from data attributes
+    const pageEl = document.querySelector('.page') as HTMLElement | null;
+    const category = pageEl?.dataset?.category || '';
+    const minScore = Number(pageEl?.dataset?.minScore || '0.5');
+    
+    console.log('Gallery loading with category:', category, 'minScore:', minScore);
+    
+    try {
+      // Try cache first
+      try {
+        let cached = sessionStorage.getItem('cf_images_v3');
+        if (!cached) {
+          // migrate from v1 if present
+          const legacy = sessionStorage.getItem('cf_images');
+          if (legacy) cached = legacy;
+          const v2 = sessionStorage.getItem('cf_images_v2');
+          if (!cached && v2) cached = v2;
+        }
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) {
+            images = parsed as ImgItem[];
+          }
+        }
+      } catch {}
+
+      function hasNewContainVariants(list: ImgItem[]): boolean {
+        for (const it of list) {
+          const vs = Array.isArray((it as any).variants) ? (it as any).variants : [];
+          if (vs.some((u: string) => typeof u === 'string' && (u.includes('160contain') || u.includes('320contain') || u.includes('480contain')))) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // Fallback to API
+      const needFresh = !Array.isArray(images) || images.length === 0 || !hasNewContainVariants(images);
+      if (needFresh) {
+        // When variants are missing, bypass caches to force an update
+        const res = await fetch(`/api/images?ts=${Date.now()}`, { cache: 'no-store' as RequestCache });
+        if (!res.ok) throw new Error('Failed to load images');
+        const data: any = await res.json();
+        images = (data && Array.isArray(data.images)) ? data.images : [];
+        try {
+          sessionStorage.setItem('cf_images_v3', JSON.stringify(images));
+          sessionStorage.removeItem('cf_images');
+          sessionStorage.removeItem('cf_images_v2');
+        } catch {}
+      } else if (!Array.isArray(images) || images.length === 0) {
+        // Normal cached fetch path
+        const res = await fetch('/api/images');
+        if (!res.ok) throw new Error('Failed to load images');
+        const data: any = await res.json();
+        images = (data && Array.isArray(data.images)) ? data.images : [];
+        try { sessionStorage.setItem('cf_images_v3', JSON.stringify(images)); } catch {}
+      }
+
+      // Filter by category if specified
+      if (category && category !== 'all') {
+        console.log('Filtering by category:', category, 'with minScore:', minScore);
+        const filteredIds = new Set<string>();
+        let cursor: number | null = null;
+        let pageCount = 0;
+        
+        if (category === 'none') {
+          // Special case: find images that DON'T have ANY label with score >= minScore
+          console.log('Finding images without any strong labels (score <', minScore, ')');
+          const excludeIds = new Set<string>();
+          
+          // Fetch all results without category filter
+          do {
+            const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+            console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
+            const resultsRes = await fetch(resultsUrl);
+            if (!resultsRes.ok) throw new Error('Failed to load classification results');
+            const resultsData: any = await resultsRes.json();
+            
+            const itemCount = Array.isArray(resultsData.items) ? resultsData.items.length : 0;
+            
+            if (Array.isArray(resultsData.items)) {
+              for (const item of resultsData.items) {
+                // Check if this item has ANY label with score >= minScore
+                if (item.image_id && Array.isArray(item.model_top)) {
+                  const hasStrongLabel = item.model_top.some((l: any) => 
+                    typeof l.score === 'number' && l.score >= minScore
+                  );
+                  if (hasStrongLabel) {
+                    excludeIds.add(item.image_id);
+                  }
+                }
+              }
+            }
+            
+            cursor = resultsData.nextCursor || null;
+            pageCount++;
+            console.log('Page', pageCount, '- items:', itemCount, '- excluded so far:', excludeIds.size, '- nextCursor:', cursor);
+            
+            // Stop if this page returned no items
+            if (itemCount === 0) {
+              console.log('Stopping pagination: page returned no items');
+              break;
+            }
+          } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
+          
+          console.log('Excluded IDs count (have label with score >=', minScore + '):', excludeIds.size);
+          // Filter to images NOT in the exclude set
+          const beforeCount = images.length;
+          images = images.filter((img: ImgItem) => !excludeIds.has(img.id));
+          console.log('After filtering:', images.length, 'images without strong labels (was', beforeCount, ')');
+        } else {
+          // Normal category filtering
+          // Fetch all pages of results
+          do {
+            const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&category=${encodeURIComponent(category)}&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+            console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
+            const resultsRes = await fetch(resultsUrl);
+            if (!resultsRes.ok) throw new Error('Failed to load classification results');
+            const resultsData: any = await resultsRes.json();
+            
+            const itemCount = Array.isArray(resultsData.items) ? resultsData.items.length : 0;
+            
+            if (Array.isArray(resultsData.items)) {
+              for (const item of resultsData.items) {
+                // Check if this item has the category label with score >= minScore
+                if (item.image_id && Array.isArray(item.model_top)) {
+                  const labelEntry = item.model_top.find((l: any) => l.label === category);
+                  if (labelEntry && typeof labelEntry.score === 'number' && labelEntry.score >= minScore) {
+                    filteredIds.add(item.image_id);
+                  }
+                }
+              }
+            }
+            
+            cursor = resultsData.nextCursor || null;
+            pageCount++;
+            console.log('Page', pageCount, '- items:', itemCount, '- total filtered so far:', filteredIds.size, '- nextCursor:', cursor);
+            
+            // Stop if this page returned no items
+            if (itemCount === 0) {
+              console.log('Stopping pagination: page returned no items');
+              break;
+            }
+          } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
+          
+          console.log('Filtered IDs count (score >=', minScore + '):', filteredIds.size, 'Total images:', images.length);
+          // Filter images to only those in the results
+          const beforeCount = images.length;
+          images = images.filter((img: ImgItem) => filteredIds.has(img.id));
+          console.log('After filtering:', images.length, 'images (was', beforeCount, ')');
+        }
+      }
+
+      rendered = 0;
+      renderBatch();
+      setupObserver();
+    } catch (e) {
+      if (container) container.textContent = 'Error loading images';
+      console.error(e);
+    }
+  }
+
+  loadImages();
+</script>
