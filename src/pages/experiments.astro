@@ -238,7 +238,7 @@ const videoBg = { src: "/images/looping-ripples.mp4", type: "video/mp4" };
 	}
 
 	function animate() {
-		const freezeTime = 0.0;
+		const freezeTime = 2.0;
 		tNow = performance.now() / 1000.0;
 		const dt: number = Math.min(tNow - tPre, 0.2);
 		tPre = tNow;
@@ -269,7 +269,7 @@ const videoBg = { src: "/images/looping-ripples.mp4", type: "video/mp4" };
 
 		for (var i = 0; i < bubbles.pos.length; i++) {
 			// Velocity from pushers
-		if (tNow > freezeTime) {
+//		if (tNow > freezeTime) {
 			for (var n = 0; n < numPushers; n++) {
 					var dx = bubbles.pos[i].x - bubbles.pos[pushers[n]].x;
 					var dy = bubbles.pos[i].y - bubbles.pos[pushers[n]].y;
@@ -281,7 +281,7 @@ const videoBg = { src: "/images/looping-ripples.mp4", type: "video/mp4" };
 					bubbles.vel[i].x += dt * pusherForces[n] * dx / (d * d);
 					bubbles.vel[i].y += dt * pusherForces[n] * dy / (d * d);
 				}
-			}
+//			}
 
 			if (true) {
 				// Mouse drag
