@@ -295,10 +295,10 @@ const videoBg = { src: "/images/looping-ripples.mp4", type: "video/mp4" };
 				const falloff = 10.0;
 				const d = Math.sqrt(dx * dx + dy * dy);
 				const k = Math.pow(1.0 - Cd / (falloff * d + 1.0), dt);
-				if (Math.abs(vx) > 0.0) {
+				if (tNow > freezeTime && Math.abs(vx) > 0.0) {
 					bubbles.vel[i].x = k * bubbles.vel[i].x + (1.0 - k) * vx;
 				}
-				if (Math.abs(vy) > 0.0) {
+				if (tNow > freezeTime && Math.abs(vy) > 0.0) {
 					bubbles.vel[i].y = k * bubbles.vel[i].y + (1.0 - k) * vy;
 				}
 
