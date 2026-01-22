@@ -20,7 +20,7 @@ In 2001 I made it from London to California to work on visual effects for Lucasf
 In 2014, a friend of a friend approached me about an idea for _Heirloom_,
 a startup in the social photography space.
 I was ready for a change, and everyone else in San Francisco was doing it,
-so why not? It was a fun year -- working out of the top floor of a converted
+so why not? It was a fun year, working out of the top floor of a converted
 warehouse in the heart of SOMA, near the SF Giants ballpark.
 Coffee shops on every corner bustling with tech entrepreneurs
 and their Macbooks.
@@ -35,4 +35,4 @@ built on Cloudflare's Developer Platform and edge network
 Everything on this site is built and deployed with Cloudflare and Astro.
 
 When I’m not working, I enjoy spending time with family and being in nature.
-I like sketching and taking photographs -- there’s some images on the site.
+I like sketching and taking photographs; there’s some images on the site.
