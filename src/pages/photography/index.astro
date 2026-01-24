@@ -1,7 +1,398 @@
 ---
-import PhotoGalleryLayout from '../../layouts/PhotoGalleryLayout.astro';
+import Layout from '../../layouts/Layout.astro';
+import NavBar from '../../components/NavBar.astro';
+import config from '../../data/photography-config.json';
+
+const CATEGORIES = [
+  'People', 'Pets', 'Wildlife', 'Landscape', 'Urban', 
+  'Architecture', 'Vehicles', 'Food', 'Night', 'Macro', 
+  'Indoor', 'Outdoor', 'Portraits'
+];
 ---
 
-<PhotoGalleryLayout title="Photography">
-</PhotoGalleryLayout>
+<Layout title={config.intro.title}>
+  <main>
+    <NavBar />
+    <div class="page">
+      <div class="intro">
+        <h1>{config.intro.title}</h1>
+        <p>{config.intro.text}</p>
+        <a href="/photography/all" class="view-all">View All Images →</a>
+      </div>
 
+      <div class="categories" 
+           data-config={JSON.stringify(config.categories)}
+           data-category-names={JSON.stringify(CATEGORIES)}>
+        <!-- Categories will be populated by client-side script -->
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  main {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-height: 100%;
+    color: white;
+    background-color: #000;
+    overflow-y: auto;
+  }
+  
+  .page {
+    box-sizing: border-box;
+    padding: 5.5rem 5vw 4rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  
+  @media (max-width: 450px) {
+    .page {
+      padding: 4.5rem 2vw 2rem;
+    }
+  }
+  
+  .intro {
+    margin-bottom: 3rem;
+    text-align: center;
+  }
+  
+  .intro h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+  }
+  
+  .intro p {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0 0 1.5rem 0;
+    line-height: 1.6;
+  }
+  
+  .view-all {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+  }
+  
+  .view-all:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+  }
+  
+
+  
+  .loading {
+    text-align: center;
+    padding: 2rem;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  
+  .error {
+    text-align: center;
+    padding: 2rem;
+    color: rgba(255, 100, 100, 0.8);
+  }
+</style>
+
+<style is:global>
+  html, body {
+    background-color: #000;
+    background-image: none;
+  }
+  
+  /* Category preview styles - must be global for dynamically created elements */
+  .category-section {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .category-section:last-child {
+    border-bottom: none;
+  }
+  
+  .category-header {
+    margin-bottom: 1rem;
+  }
+  
+  .category-header h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+  }
+  
+  .category-header h2 a {
+    color: white;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  
+  .category-header h2 a:hover {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  
+  .category-description {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    margin: 0 0 1.5rem 0;
+  }
+  
+  .category-preview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    max-width: 900px;
+  }
+  
+  @media (max-width: 768px) {
+    .category-preview {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  @media (max-width: 450px) {
+    .category-preview {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  .preview-item {
+    display: block;
+    position: relative;
+    aspect-ratio: 4/3;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+  
+  .preview-item:hover {
+    transform: scale(1.02);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+  
+  .preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  
+  .preview-item .score-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: none;
+  }
+  
+  .debug .preview-item .score-badge {
+    display: block;
+  }
+</style>
+
+<script>
+  type CategoryConfig = {
+    id: string;
+    name: string;
+    description: string;
+    featured: string[];
+  };
+
+  type ClassificationItem = {
+    image_id: string;
+    image_url: string;
+    model_top: Array<{ label: string; score: number }>;
+  };
+
+  type ImgItem = {
+    id: string;
+    filename?: string;
+    variants?: string[];
+  };
+
+  async function loadCategoryPreviews() {
+    const container = document.querySelector('.categories');
+    if (!container) return;
+
+    // Check for debug mode
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugMode = urlParams.get('debug') === 'true';
+    
+    if (debugMode) {
+      container.classList.add('debug');
+    }
+
+    try {
+      // Show loading state
+      container.innerHTML = '<div class="loading">Loading category previews...</div>';
+
+      // Get config from data attributes
+      const configStr = container.getAttribute('data-config');
+      const categoryNamesStr = container.getAttribute('data-category-names');
+      if (!configStr || !categoryNamesStr) {
+        throw new Error('Missing configuration');
+      }
+
+      const categories: CategoryConfig[] = JSON.parse(configStr);
+      const categoryNames: string[] = JSON.parse(categoryNamesStr);
+
+      // Fetch all images
+      const imagesRes = await fetch('/api/images');
+      if (!imagesRes.ok) throw new Error('Failed to load images');
+      const imagesData: any = await imagesRes.json();
+      const allImages: ImgItem[] = imagesData.images || [];
+
+      // Create a map of image_id -> image data
+      const imageMap = new Map<string, ImgItem>();
+      allImages.forEach(img => imageMap.set(img.id, img));
+
+      // Fetch classification results to get top images per category
+      const categoryTopImages = new Map<string, Array<{ id: string; score: number }>>();
+      
+      // Initialize empty arrays for each category
+      categoryNames.forEach(cat => categoryTopImages.set(cat, []));
+
+      // Fetch all classification results
+      let cursor = 0;
+      let pageCount = 0;
+      const maxPages = 50;
+
+      while (pageCount < maxPages) {
+        const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+        const resultsRes = await fetch(resultsUrl);
+        if (!resultsRes.ok) break;
+        
+        const resultsData: any = await resultsRes.json();
+        const items: ClassificationItem[] = resultsData.items || [];
+        
+        if (items.length === 0) break;
+
+        // Process items
+        items.forEach(item => {
+          if (!item.model_top) return;
+          
+          item.model_top.forEach(({ label, score }) => {
+            if (!categoryNames.includes(label)) return;
+            
+            const topList = categoryTopImages.get(label);
+            if (!topList) return;
+            
+            topList.push({ id: item.image_id, score });
+          });
+        });
+
+        cursor = resultsData.nextCursor;
+        if (!cursor) break;
+        pageCount++;
+      }
+
+      // Sort and keep top 4 for each category
+      categoryTopImages.forEach((list, category) => {
+        list.sort((a, b) => b.score - a.score);
+        categoryTopImages.set(category, list.slice(0, 4));
+      });
+
+      // Build the HTML
+      container.innerHTML = '';
+
+      categories.forEach(category => {
+        const section = document.createElement('div');
+        section.className = 'category-section';
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'category-header';
+        
+        const title = document.createElement('h2');
+        const titleLink = document.createElement('a');
+        titleLink.href = `/photography/${category.id}`;
+        titleLink.textContent = category.name;
+        title.appendChild(titleLink);
+        header.appendChild(title);
+
+        const desc = document.createElement('p');
+        desc.className = 'category-description';
+        desc.textContent = category.description;
+        header.appendChild(desc);
+
+        section.appendChild(header);
+
+        // Preview images
+        const preview = document.createElement('div');
+        preview.className = 'category-preview';
+
+        // Use featured images if specified, otherwise use top scored
+        let imagesToShow: Array<{ id: string; score?: number }> = [];
+        
+        if (category.featured && category.featured.length > 0) {
+          imagesToShow = category.featured.map(id => ({ id }));
+        } else {
+          const topList = categoryTopImages.get(category.name) || [];
+          imagesToShow = topList;
+        }
+
+        // Render up to 4 images
+        imagesToShow.slice(0, 4).forEach(({ id, score }) => {
+          const img = imageMap.get(id);
+          if (!img) return;
+
+          const item = document.createElement('a');
+          item.className = 'preview-item';
+          item.href = `/photography/${id}`;
+
+          const imgEl = document.createElement('img');
+          imgEl.loading = 'lazy';
+          imgEl.alt = img.filename || id;
+          
+          // Pick appropriate variant
+          const variants = img.variants || [];
+          const variant480 = variants.find(u => u.includes('480contain'));
+          const variant320 = variants.find(u => u.includes('320contain'));
+          imgEl.src = variant480 || variant320 || variants[0] || '';
+
+          item.appendChild(imgEl);
+
+          // Add score badge if we have it
+          if (score !== undefined) {
+            const badge = document.createElement('div');
+            badge.className = 'score-badge';
+            badge.textContent = score.toFixed(2);
+            item.appendChild(badge);
+          }
+
+          preview.appendChild(item);
+        });
+
+        section.appendChild(preview);
+        container.appendChild(section);
+      });
+
+    } catch (error) {
+      console.error('Error loading category previews:', error);
+      container.innerHTML = '<div class="error">Error loading category previews</div>';
+    }
+  }
+
+  // Load when page is ready
+  loadCategoryPreviews();
+</script>

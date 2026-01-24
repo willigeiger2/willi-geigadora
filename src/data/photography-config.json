@@ -1,0 +1,80 @@
+{
+  "intro": {
+    "title": "Photography",
+    "text": "A curated collection of my photography, organized by subject and style. Click any category to see the full album."
+  },
+  "categories": [
+    {
+      "id": "people",
+      "name": "People",
+      "description": "Portraits and candid moments with people as the main subject.",
+      "featured": []
+    },
+    {
+      "id": "pets",
+      "name": "Pets",
+      "description": "Cats, dogs, and other beloved companion animals.",
+      "featured": []
+    },
+    {
+      "id": "wildlife",
+      "name": "Wildlife",
+      "description": "Animals in their natural habitats.",
+      "featured": []
+    },
+    {
+      "id": "landscape",
+      "name": "Landscape",
+      "description": "Mountains, forests, beaches, and natural scenery.",
+      "featured": []
+    },
+    {
+      "id": "urban",
+      "name": "Urban",
+      "description": "City streets, street photography, and urban environments.",
+      "featured": []
+    },
+    {
+      "id": "architecture",
+      "name": "Architecture",
+      "description": "Buildings and structures as the primary focus.",
+      "featured": []
+    },
+    {
+      "id": "vehicles",
+      "name": "Vehicles",
+      "description": "Cars, trucks, trains, and other modes of transportation.",
+      "featured": []
+    },
+    {
+      "id": "food",
+      "name": "Food",
+      "description": "Culinary creations and food photography.",
+      "featured": []
+    },
+    {
+      "id": "night",
+      "name": "Night",
+      "description": "Photography captured after dark.",
+      "featured": []
+    },
+    {
+      "id": "macro",
+      "name": "Macro",
+      "description": "Extreme close-ups revealing intricate details.",
+      "featured": []
+    },
+    {
+      "id": "portraits",
+      "name": "Portraits",
+      "description": "Close-up portraits with faces as the main subject.",
+      "featured": []
+    },
+    {
+      "id": "interiors",
+      "name": "Indoor",
+      "description": "Interior spaces and indoor photography.",
+      "featured": []
+    }
+  ]
+}
