@@ -1,9 +1,15 @@
 {
   "intro": {
     "title": "Photography",
-    "text": "A curated collection of my photography, organized by subject and style. Click any category to see the full album."
+    "text": "This is a bit of an experiment. I uploaded around 600 of my photos, and asked an AI (LLM) to score them against different categories. Click any category to see the full album. The button below shows the full gallery of photographs."
   },
   "categories": [
+    {
+      "id": "featured",
+      "name": "Featured",
+      "description": "These are the ones the AI thinks are my \"best.\" What do you think? Perhaps I should make a section of the ones I like, for comparison.",
+      "featured": []
+    },
     {
       "id": "people",
       "name": "People",
@@ -13,31 +19,25 @@
     {
       "id": "pets",
       "name": "Pets",
-      "description": "Cats, dogs, and other beloved companion animals.",
+      "description": "Cats, dogs, and other beloved companion animals. Looks like the AI also included a few raccoons, etc. I guess I like those too!",
       "featured": []
     },
     {
       "id": "wildlife",
       "name": "Wildlife",
-      "description": "Animals in their natural habitats.",
+      "description": "Animals in their natural habitats. The AI does pretty well here.",
       "featured": []
     },
     {
       "id": "landscape",
       "name": "Landscape",
-      "description": "Mountains, forests, beaches, and natural scenery.",
+      "description": "Mountains, forests, beaches, and natural scenery. Also wants to include a bunch of animals, so I'm working to exlude those.",
       "featured": []
     },
     {
       "id": "urban",
       "name": "Urban",
-      "description": "City streets, street photography, and urban environments.",
-      "featured": []
-    },
-    {
-      "id": "architecture",
-      "name": "Architecture",
-      "description": "Buildings and structures as the primary focus.",
+      "description": "City streets, buildings, architecture, and urban environments.",
       "featured": []
     },
     {
@@ -49,7 +49,7 @@
     {
       "id": "food",
       "name": "Food",
-      "description": "Culinary creations and food photography.",
+      "description": "Culinary creations and food photography. I don't think I actually do much food photography, so the AI's probably correct not to put too many in here.",
       "featured": []
     },
     {
@@ -61,19 +61,19 @@
     {
       "id": "macro",
       "name": "Macro",
-      "description": "Extreme close-ups revealing intricate details.",
-      "featured": []
-    },
-    {
-      "id": "portraits",
-      "name": "Portraits",
-      "description": "Close-up portraits with faces as the main subject.",
+      "description": "Extreme close-ups revealing intricate details. The AI really struggles here. It really doesn't seem to understand what's meant by \"macro\" photography.",
       "featured": []
     },
     {
       "id": "interiors",
-      "name": "Indoor",
+      "name": "Interiors",
       "description": "Interior spaces and indoor photography.",
+      "featured": []
+    },
+    {
+      "id": "misc",
+      "name": "Odds & Ends",
+      "description": "Images that don't fit neatly into other categories. The ones the AI didn't score highly against any prompt. A lot of these are people -- the AI seems to have trouble reliably identifying shots of people.",
       "featured": []
     }
   ]

@@ -1,0 +1,21 @@
+name = "color-analyzer-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-25"
+
+[vars]
+CF_ACCOUNT_ID = "3ce0a7682b4404afc52b42b6af1152b4"
+PREFERRED_VARIANTS = "480contain,public"
+
+[observability]
+enabled = false
+
+[dev]
+port = 8788
+
+[placement]
+mode = "smart"
+
+[[d1_databases]]
+binding = "CLASSIFIER_DB"
+database_name = "classifier_db"
+database_id = "a4481b88-4c1f-465f-b8d5-253bb94e1d06"

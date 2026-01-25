@@ -5,8 +5,8 @@
  * Fetches all classification data and generates detailed statistics
  */
 
-const https = require('https');
-const fs = require('fs');
+import https from 'https';
+import fs from 'fs';
 
 const TOKEN = 'd8uWzRrb-qRBNOFCiKyAaq2UgnwLMU8DUUb8Fzly';
 const BASE = 'image-classifier-worker.willigeiger.workers.dev';
@@ -14,8 +14,7 @@ const MODEL = '@cf/llava-hf/llava-1.5-7b-hf';
 
 const CATEGORIES = [
   'People', 'Pets', 'Wildlife', 'Landscape', 'Urban', 
-  'Architecture', 'Vehicles', 'Food', 'Night', 'Macro', 
-  'Indoor', 'Outdoor', 'Portraits'
+  'Vehicles', 'Food', 'Night', 'Macro', 'Interiors', 'Featured'
 ];
 
 const THRESHOLDS = [0.5, 0.6, 0.7, 0.8, 0.9];

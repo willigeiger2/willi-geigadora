@@ -8,14 +8,15 @@ interface Props {
 	title: string;
 	category?: string;
 	minScore?: number;
+	model?: string;
 }
 
-const { title, category, minScore = 0.5 } = Astro.props;
+const { title, category, minScore = 0.5, model = '@cf/llava-hf/llava-1.5-7b-hf' } = Astro.props;
 ---
 <Layout title={title}>
   <main>
     <NavBar />
-    <div class="page" data-category={category || ''} data-min-score={String(minScore)}>
+    <div class="page" data-category={category || ''} data-min-score={String(minScore)} data-model={model}>
       <div id="thumbs" class="thumbs" aria-live="polite"></div>
       <div id="sentinel" class="sentinel" aria-hidden="true"></div>
     </div>
@@ -121,6 +122,23 @@ const { title, category, minScore = 0.5 } = Astro.props;
     object-fit: contain;
     border-radius: 4px;
   }
+  
+  .thumb .score-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    pointer-events: none;
+  }
+  
+  .thumb {
+    position: relative;
+  }
 
   /* Responsive tweaks for small iPhone widths */
   @media (max-width: 450px) and (orientation: portrait) {
@@ -133,11 +151,12 @@ const { title, category, minScore = 0.5 } = Astro.props;
 </style>
 
 <script>
-  type ImgItem = { id: string, filename?: string, variants?: string[] };
+  type ImgItem = { id: string, filename?: string, variants?: string[], score?: number, topCategory?: string };
 
   let images: ImgItem[] = [];
   let rendered = 0;
   const BATCH_SIZE = 60;
+  let debugMode = false;
 
   function pickThumbVariant(item: ImgItem): string {
     const vs = Array.isArray(item.variants) ? item.variants : [];
@@ -191,6 +210,19 @@ const { title, category, minScore = 0.5 } = Astro.props;
         // DPR-based selection doesn't require sizes; we can omit or set to 100vw
       }
       a.appendChild(el);
+      
+      // Add score badge in debug mode
+      if (debugMode && img.score !== undefined) {
+        const badge = document.createElement('div');
+        badge.className = 'score-badge';
+        if (img.topCategory) {
+          badge.textContent = `${img.topCategory} ${img.score.toFixed(2)}`;
+        } else {
+          badge.textContent = img.score.toFixed(2);
+        }
+        a.appendChild(badge);
+      }
+      
       frag.appendChild(a);
     }
     container.appendChild(frag);
@@ -216,12 +248,17 @@ const { title, category, minScore = 0.5 } = Astro.props;
     const container = document.getElementById('thumbs') as HTMLDivElement | null;
     if (container) container.innerHTML = '';
     
-    // Read category and minScore from data attributes
+    // Check for debug mode
+    const urlParams = new URLSearchParams(window.location.search);
+    debugMode = urlParams.get('debug') === 'true';
+    
+    // Read category, minScore, and model from data attributes
     const pageEl = document.querySelector('.page') as HTMLElement | null;
     const category = pageEl?.dataset?.category || '';
     const minScore = Number(pageEl?.dataset?.minScore || '0.5');
+    const model = pageEl?.dataset?.model || '@cf/llava-hf/llava-1.5-7b-hf';
     
-    console.log('Gallery loading with category:', category, 'minScore:', minScore);
+    console.log('Gallery loading with category:', category, 'minScore:', minScore, 'model:', model, 'debug:', debugMode);
     
     try {
       // Try cache first
@@ -277,7 +314,7 @@ const { title, category, minScore = 0.5 } = Astro.props;
       // Filter by category if specified
       if (category && category !== 'all') {
         console.log('Filtering by category:', category, 'with minScore:', minScore);
-        const filteredIds = new Set<string>();
+        const imageScores = new Map<string, { score: number; category: string }>();
         let cursor: number | null = null;
         let pageCount = 0;
         
@@ -288,7 +325,7 @@ const { title, category, minScore = 0.5 } = Astro.props;
           
           // Fetch all results without category filter
           do {
-            const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+            const resultsUrl = `/api/results?model=${encodeURIComponent(model)}&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
             console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
             const resultsRes = await fetch(resultsUrl);
             if (!resultsRes.ok) throw new Error('Failed to load classification results');
@@ -298,13 +335,29 @@ const { title, category, minScore = 0.5 } = Astro.props;
             
             if (Array.isArray(resultsData.items)) {
               for (const item of resultsData.items) {
-                // Check if this item has ANY label with score >= minScore
+                // Check if this item has ANY label with score >= threshold
+                // People threshold is 0.5, all others are 0.6 (minScore)
                 if (item.image_id && Array.isArray(item.model_top)) {
-                  const hasStrongLabel = item.model_top.some((l: any) => 
-                    typeof l.score === 'number' && l.score >= minScore
-                  );
+                  let maxScore = 0;
+                  let topCategory = '';
+                  for (const l of item.model_top) {
+                    if (l.score > maxScore) {
+                      maxScore = l.score;
+                      topCategory = l.label;
+                    }
+                  }
+                  const hasStrongLabel = item.model_top.some((l: any) => {
+                    if (typeof l.score !== 'number') return false;
+                    // Different thresholds for different categories
+                    let threshold = minScore; // Default 0.6
+                    if (l.label === 'People') threshold = 0.3;
+                    else if (l.label === 'Landscape') threshold = 0.4;
+                    return l.score >= threshold;
+                  });
                   if (hasStrongLabel) {
                     excludeIds.add(item.image_id);
+                  } else {
+                    imageScores.set(item.image_id, { score: maxScore, category: topCategory });
                   }
                 }
               }
@@ -322,15 +375,22 @@ const { title, category, minScore = 0.5 } = Astro.props;
           } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
           
           console.log('Excluded IDs count (have label with score >=', minScore + '):', excludeIds.size);
-          // Filter to images NOT in the exclude set
+          // Filter to images NOT in the exclude set and add scores
           const beforeCount = images.length;
-          images = images.filter((img: ImgItem) => !excludeIds.has(img.id));
+          images = images.filter((img: ImgItem) => !excludeIds.has(img.id)).map((img: ImgItem) => {
+            const scoreData = imageScores.get(img.id);
+            return {
+              ...img,
+              score: scoreData?.score,
+              topCategory: scoreData?.category
+            };
+          });
           console.log('After filtering:', images.length, 'images without strong labels (was', beforeCount, ')');
         } else {
           // Normal category filtering
           // Fetch all pages of results
           do {
-            const resultsUrl = `/api/results?model=%40cf%2Fllava-hf%2Fllava-1.5-7b-hf&category=${encodeURIComponent(category)}&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
+            const resultsUrl = `/api/results?model=${encodeURIComponent(model)}&category=${encodeURIComponent(category)}&limit=200${cursor ? `&cursor=${cursor}` : ''}`;
             console.log('Fetching results page', pageCount + 1, cursor ? `(cursor: ${cursor})` : '(first page)');
             const resultsRes = await fetch(resultsUrl);
             if (!resultsRes.ok) throw new Error('Failed to load classification results');
@@ -344,7 +404,7 @@ const { title, category, minScore = 0.5 } = Astro.props;
                 if (item.image_id && Array.isArray(item.model_top)) {
                   const labelEntry = item.model_top.find((l: any) => l.label === category);
                   if (labelEntry && typeof labelEntry.score === 'number' && labelEntry.score >= minScore) {
-                    filteredIds.add(item.image_id);
+                    imageScores.set(item.image_id, { score: labelEntry.score, category: category });
                   }
                 }
               }
@@ -352,7 +412,7 @@ const { title, category, minScore = 0.5 } = Astro.props;
             
             cursor = resultsData.nextCursor || null;
             pageCount++;
-            console.log('Page', pageCount, '- items:', itemCount, '- total filtered so far:', filteredIds.size, '- nextCursor:', cursor);
+            console.log('Page', pageCount, '- items:', itemCount, '- total filtered so far:', imageScores.size, '- nextCursor:', cursor);
             
             // Stop if this page returned no items
             if (itemCount === 0) {
@@ -361,10 +421,17 @@ const { title, category, minScore = 0.5 } = Astro.props;
             }
           } while (cursor !== null && pageCount < 50); // Safety limit of 50 pages
           
-          console.log('Filtered IDs count (score >=', minScore + '):', filteredIds.size, 'Total images:', images.length);
-          // Filter images to only those in the results
+          console.log('Filtered IDs count (score >=', minScore + '):', imageScores.size, 'Total images:', images.length);
+          // Filter images to only those in the results and add scores
           const beforeCount = images.length;
-          images = images.filter((img: ImgItem) => filteredIds.has(img.id));
+          images = images.filter((img: ImgItem) => imageScores.has(img.id)).map((img: ImgItem) => {
+            const scoreData = imageScores.get(img.id);
+            return {
+              ...img,
+              score: scoreData?.score,
+              topCategory: scoreData?.category
+            };
+          });
           console.log('After filtering:', images.length, 'images (was', beforeCount, ')');
         }
       }

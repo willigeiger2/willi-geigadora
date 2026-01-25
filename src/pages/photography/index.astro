@@ -4,9 +4,8 @@ import NavBar from '../../components/NavBar.astro';
 import config from '../../data/photography-config.json';
 
 const CATEGORIES = [
-  'People', 'Pets', 'Wildlife', 'Landscape', 'Urban', 
-  'Architecture', 'Vehicles', 'Food', 'Night', 'Macro', 
-  'Indoor', 'Outdoor', 'Portraits'
+  'Featured', 'People', 'Pets', 'Wildlife', 'Landscape', 'Urban', 
+  'Vehicles', 'Food', 'Night', 'Macro', 'Interiors'
 ];
 ---
 
@@ -266,6 +265,7 @@ const CATEGORIES = [
 
       // Fetch classification results to get top images per category
       const categoryTopImages = new Map<string, Array<{ id: string; score: number }>>();
+      const miscImages: Array<{ id: string; score: number }> = [];
       
       // Initialize empty arrays for each category
       categoryNames.forEach(cat => categoryTopImages.set(cat, []));
@@ -289,6 +289,12 @@ const CATEGORIES = [
         items.forEach(item => {
           if (!item.model_top) return;
           
+          // Check if this image should go in misc (max score < 0.5)
+          const maxScore = Math.max(...item.model_top.map((l: any) => l.score || 0));
+          if (maxScore < 0.5) {
+            miscImages.push({ id: item.image_id, score: maxScore });
+          }
+          
           item.model_top.forEach(({ label, score }) => {
             if (!categoryNames.includes(label)) return;
             
@@ -309,6 +315,10 @@ const CATEGORIES = [
         list.sort((a, b) => b.score - a.score);
         categoryTopImages.set(category, list.slice(0, 4));
       });
+      
+      // Sort misc images and keep top 4
+      miscImages.sort((a, b) => b.score - a.score);
+      const topMiscImages = miscImages.slice(0, 4);
 
       // Build the HTML
       container.innerHTML = '';
@@ -344,6 +354,9 @@ const CATEGORIES = [
         
         if (category.featured && category.featured.length > 0) {
           imagesToShow = category.featured.map(id => ({ id }));
+        } else if (category.id === 'misc') {
+          // Special handling for misc category
+          imagesToShow = topMiscImages;
         } else {
           const topList = categoryTopImages.get(category.name) || [];
           imagesToShow = topList;

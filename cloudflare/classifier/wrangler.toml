@@ -8,8 +8,8 @@ binding = "AI"
 
 [vars]
 # Optionally expose non-secret config here
-LABELS = "People, Pets, Wildlife, Landscape, Urban, Architecture, Vehicles, Food, Night, Macro, Indoor, Outdoor, Portraits"
-LABEL_HINTS = "Urban: city/street context; Architecture: buildings or structures as subject; Macro: close-up detail; Indoor: shot inside; Outdoor: shot outside; Portraits: close-up of face(s) or a person clearly the main subject"
+LABELS = "People, Pets, Wildlife, Landscape, Urban, Vehicles, Food, Night, Macro, Interiors, Featured"
+LABEL_HINTS = "People: photograph contains one or more human beings clearly visible in the image, actual humans present not just suggested, people are recognizable as humans with visible faces or bodies, not animals or landscapes without people; Landscape: natural scenery like mountains, forests, beaches, or fields as the main subject, not primarily featuring animals or people; Urban: city streets, buildings, architecture, or urban environments including structures as subjects or context; Macro: extreme close-up photography showing fine details at magnification, typically of insects, flowers, textures, or small objects with very shallow depth of field, not regular close-ups; Wildlife: wild animals in their natural habitat as the main subject; Pets: domestic animals like cats and dogs as the main subject; Vehicles: cars, trucks, trains, or other transportation as main subject; Food: prepared food, meals, or culinary subjects; Night: photographs taken in darkness or low light; Interiors: photograph taken inside a building or enclosed space; Featured: exceptional photograph with strong composition, professional lighting, sharp focus, and artistic merit, suitable for portfolio or exhibition"
 CF_ACCOUNT_ID = "3ce0a7682b4404afc52b42b6af1152b4" # Set your Cloudflare Account ID (required for /batch Images API)
 PREFERRED_VARIANTS = "480contain,public" # Order matters; used by /batch to choose image variants
 

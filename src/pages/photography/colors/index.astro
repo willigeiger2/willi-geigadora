@@ -1,0 +1,130 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import NavBar from '../../../components/NavBar.astro';
+
+const colors = [
+  { name: 'Red', slug: 'red', hex: '#FF0000' },
+  { name: 'Orange', slug: 'orange', hex: '#FFA500' },
+  { name: 'Yellow', slug: 'yellow', hex: '#FFFF00' },
+  { name: 'Green', slug: 'green', hex: '#00FF00' },
+  { name: 'Blue', slug: 'blue', hex: '#0000FF' },
+  { name: 'Purple', slug: 'purple', hex: '#800080' },
+  { name: 'Brown', slug: 'brown', hex: '#8B4513' },
+  { name: 'Black', slug: 'black', hex: '#000000' },
+  { name: 'White', slug: 'white', hex: '#FFFFFF' },
+  { name: 'Gray', slug: 'gray', hex: '#808080' },
+];
+---
+
+<Layout title="Colors">
+  <main>
+    <NavBar />
+    <div class="page">
+      <h1>Browse by Color</h1>
+      <p class="intro">Explore images classified by their dominant colors. Each gallery shows photos where that color is prominent.</p>
+      
+      <div class="colors-grid">
+        {colors.map(color => (
+          <a href={`/photography/colors/${color.slug}`} class="color-card">
+            <div class="color-swatch" style={`background-color: ${color.hex};`}></div>
+            <div class="color-name">{color.name}</div>
+          </a>
+        ))}
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  main {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-height: 100%;
+    color: white;
+    background-color: #000;
+    overflow-y: auto;
+  }
+  
+  .page {
+    box-sizing: border-box;
+    padding: 5.5rem 5vw 4rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  @media (max-width: 450px) {
+    .page {
+      padding: 4.5rem 2vw 2rem;
+    }
+  }
+  
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+  }
+  
+  .intro {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0 0 3rem 0;
+    line-height: 1.6;
+  }
+  
+  .colors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  @media (max-width: 450px) {
+    .colors-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+  }
+  
+  .color-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    padding: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+  }
+  
+  .color-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.4);
+  }
+  
+  .color-swatch {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+  
+  .color-name {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: white;
+  }
+</style>
+
+<style is:global>
+  html, body {
+    background-color: #000;
+    background-image: none;
+  }
+</style>
