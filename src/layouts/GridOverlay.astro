@@ -10,16 +10,25 @@
 		left: 0;
 		bottom: 0;
 		right: 0;
-		width: 80%;
+		width: 100%;
+		max-width: 1400px;
         margin: auto;
-		overflow:hidden;
+		overflow: auto;
   		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 		gap: 2rem;
 		align-content: center;
-		justify-items: center;
+		justify-items: stretch;
         box-sizing: border-box; 
         padding: 2rem;
 		pointer-events: none;
+	}
+	
+	@media (max-width: 768px) {
+		.grid-overlay {
+			padding: 1rem;
+			gap: 1rem;
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

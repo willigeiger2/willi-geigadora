@@ -12,7 +12,11 @@ export const GET: APIRoute = async ({ request }) => {
   const limit = Number(limitStr);
 
   // Get classifier worker URL from env or use default
-  const CLASSIFIER_BASE_URL = import.meta.env.CLASSIFIER_BASE_URL || 'https://image-classifier-worker.willigeiger.workers.dev';
+  // Route to color-analyzer worker if model=color-analyzer
+  let WORKER_BASE_URL = import.meta.env.CLASSIFIER_BASE_URL || 'https://image-classifier-worker.willigeiger.workers.dev';
+  if (model === 'color-analyzer') {
+    WORKER_BASE_URL = 'https://color-analyzer-worker.willigeiger.workers.dev';
+  }
   const CLASSIFY_TOKEN = import.meta.env.CLASSIFY_TOKEN || '';
 
   try {
@@ -24,7 +28,7 @@ export const GET: APIRoute = async ({ request }) => {
       headers['Authorization'] = `Bearer ${CLASSIFY_TOKEN}`;
     }
 
-    const workerUrl = new URL('/results', CLASSIFIER_BASE_URL);
+    const workerUrl = new URL('/results', WORKER_BASE_URL);
     workerUrl.searchParams.set('model', model);
     if (category) workerUrl.searchParams.set('category', category);
     if (minStr) workerUrl.searchParams.set('min', minStr);

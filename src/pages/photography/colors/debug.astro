@@ -1,0 +1,357 @@
+---
+import PhotoGalleryLayout from '../../../layouts/PhotoGalleryLayout.astro';
+---
+
+<PhotoGalleryLayout title="Color Analysis Debug" model="color-analyzer">
+  <!-- Page content will be injected by the layout -->
+</PhotoGalleryLayout>
+
+<style is:global>
+  /* Add intro section before thumbs */
+  #thumbs::before {
+    content: '';
+    display: block;
+    width: 100%;
+  }
+  
+  .color-debug-intro {
+    margin-bottom: 2rem;
+  }
+  
+  .color-debug-intro h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+  }
+  
+  .color-debug-intro p {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0 0 1.5rem 0;
+    line-height: 1.6;
+  }
+  
+  .filters {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+  }
+  
+  .filters label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  
+  .filters input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+  
+  .stats {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    line-height: 1.8;
+  }
+  
+  /* Color badge overlay on thumbs */
+  .thumb .color-badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    padding: 0.5rem;
+    font-size: 0.7rem;
+    line-height: 1.3;
+    pointer-events: none;
+  }
+  
+  .thumb .color-badge .color-text {
+    font-weight: 600;
+    color: white;
+  }
+  
+  /* Uniform distribution indicator */
+  .thumb.uniform {
+    border-color: rgba(255, 100, 100, 0.5);
+  }
+  
+  .thumb.uniform .uniform-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: rgba(255, 50, 50, 0.9);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    pointer-events: none;
+  }
+</style>
+
+<script>
+  type ColorResult = {
+    id: number;
+    image_id: string;
+    image_url: string;
+    model: string;
+    model_top: Array<{ label: string; score: number }>;
+    computed_at: string;
+  };
+
+  type ImgItem = { 
+    id: string, 
+    filename?: string, 
+    variants?: string[], 
+    colorData?: ColorResult 
+  };
+
+  let allColorResults: Map<string, ColorResult> = new Map();
+  let showUniform = true;
+  let showValid = true;
+
+  function isUniform(result: ColorResult): boolean {
+    const scores = result.model_top.map(c => c.score);
+    const min = Math.min(...scores);
+    const max = Math.max(...scores);
+    return (max - min) < 0.02;
+  }
+
+  async function fetchAllColorResults() {
+    const results: ColorResult[] = [];
+    let cursor = 0;
+    
+    while (true) {
+      const response = await fetch(`/api/results?limit=200&cursor=${cursor}&model=color-analyzer`);
+      const data: any = await response.json();
+      if (!data.items || data.items.length === 0) break;
+      
+      results.push(...data.items);
+      cursor = data.nextCursor;
+      
+      if (data.items.length < 200) break;
+    }
+    
+    return results;
+  }
+
+  function pickThumbVariant(item: ImgItem): string {
+    const vs = Array.isArray(item.variants) ? item.variants : [];
+    if (vs.length === 0) return '';
+    const v160 = vs.find((u: string) => typeof u === 'string' && u.includes('160contain'));
+    if (v160) return v160;
+    const v240 = vs.find((u: string) => typeof u === 'string' && u.includes('240contain'));
+    if (v240) return v240;
+    const v320 = vs.find((u: string) => typeof u === 'string' && u.includes('320contain'));
+    if (v320) return v320;
+    const v480 = vs.find((u: string) => typeof u === 'string' && u.includes('480contain'));
+    if (v480) return v480;
+    const nonPublic = vs.filter((u: string) => typeof u === 'string' && !u.includes('public'));
+    if (nonPublic.length > 0) return nonPublic[0];
+    return vs[0] || vs[vs.length - 1];
+  }
+
+  function buildThumbSrcSet(item: ImgItem): string {
+    const vs = Array.isArray(item.variants) ? item.variants : [];
+    const v160 = vs.find((u: string) => typeof u === 'string' && u.includes('160contain'));
+    const v320 = vs.find((u: string) => typeof u === 'string' && u.includes('320contain'));
+    const v480 = vs.find((u: string) => typeof u === 'string' && u.includes('480contain'));
+    const parts: string[] = [];
+    if (v160) parts.push(`${v160} 1x`);
+    if (v320) parts.push(`${v320} 2x`);
+    if (v480) parts.push(`${v480} 3x`);
+    return parts.join(', ');
+  }
+
+  function renderColorGallery(images: ImgItem[]) {
+    const container = document.getElementById('thumbs') as HTMLDivElement | null;
+    if (!container) return;
+
+    // Filter based on checkbox state
+    const filteredImages = images.filter(img => {
+      if (!img.colorData) return false;
+      const uniform = isUniform(img.colorData);
+      if (uniform && !showUniform) return false;
+      if (!uniform && !showValid) return false;
+      return true;
+    });
+
+    // Clear and render
+    container.innerHTML = '';
+    const frag = document.createDocumentFragment();
+
+    filteredImages.forEach((img: ImgItem) => {
+      const a = document.createElement('a');
+      a.href = `/photography/${encodeURIComponent(img.id)}`;
+      a.className = 'thumb';
+      
+      const colorData = img.colorData!;
+      const uniform = isUniform(colorData);
+      if (uniform) {
+        a.classList.add('uniform');
+      }
+
+      const el = document.createElement('img');
+      el.loading = 'lazy';
+      el.alt = img.filename || img.id;
+      const base = pickThumbVariant(img);
+      el.src = base;
+      const ss = buildThumbSrcSet(img);
+      if (ss) {
+        el.setAttribute('srcset', ss);
+      }
+      a.appendChild(el);
+
+      // Add color badge
+      const badge = document.createElement('div');
+      badge.className = 'color-badge';
+      const top3 = colorData.model_top.slice(0, 3);
+      const colorsText = top3.map(c => `${c.label}: ${(c.score * 100).toFixed(0)}%`).join(' / ');
+      const colorTextEl = document.createElement('div');
+      colorTextEl.className = 'color-text';
+      colorTextEl.textContent = colorsText;
+      badge.appendChild(colorTextEl);
+      a.appendChild(badge);
+
+      // Add uniform badge if needed
+      if (uniform) {
+        const uniformBadge = document.createElement('div');
+        uniformBadge.className = 'uniform-badge';
+        uniformBadge.textContent = 'UNIFORM';
+        a.appendChild(uniformBadge);
+      }
+
+      frag.appendChild(a);
+    });
+
+    container.appendChild(frag);
+
+    // Update stats
+    const statsEl = document.getElementById('stats');
+    const totalWithColor = images.length;
+    const uniformCount = images.filter(img => img.colorData && isUniform(img.colorData)).length;
+    const validCount = totalWithColor - uniformCount;
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <strong>Total analyzed:</strong> ${totalWithColor}<br>
+        <strong>Valid analyses:</strong> ${validCount} (${(validCount / totalWithColor * 100).toFixed(1)}%)<br>
+        <strong>Uniform distributions (failures):</strong> ${uniformCount} (${(uniformCount / totalWithColor * 100).toFixed(1)}%)<br>
+        <strong>Currently showing:</strong> ${filteredImages.length} images
+      `;
+    }
+  }
+
+  async function initColorDebug() {
+    // Inject intro section
+    const pageEl = document.querySelector('.page') as HTMLElement;
+    if (pageEl) {
+      const intro = document.createElement('div');
+      intro.className = 'color-debug-intro';
+      intro.innerHTML = `
+        <h1>Color Analysis Debug</h1>
+        <p>All images with color analysis results. Click to see full analysis. Uniform distributions (10% each) indicate failures.</p>
+      `;
+
+      const filters = document.createElement('div');
+      filters.className = 'filters';
+      filters.innerHTML = `
+        <label>
+          <input type="checkbox" id="show-uniform" checked />
+          Show uniform distributions (likely failures)
+        </label>
+        <label>
+          <input type="checkbox" id="show-valid" checked />
+          Show valid color analyses
+        </label>
+      `;
+
+      const stats = document.createElement('div');
+      stats.id = 'stats';
+      stats.className = 'stats';
+      stats.textContent = 'Loading...';
+
+      const thumbs = document.getElementById('thumbs');
+      if (thumbs) {
+        pageEl.insertBefore(intro, thumbs);
+        pageEl.insertBefore(filters, thumbs);
+        pageEl.insertBefore(stats, thumbs);
+      }
+
+      // Set up filter listeners
+      const uniformCheckbox = document.getElementById('show-uniform') as HTMLInputElement;
+      const validCheckbox = document.getElementById('show-valid') as HTMLInputElement;
+      uniformCheckbox?.addEventListener('change', (e) => {
+        showUniform = (e.target as HTMLInputElement).checked;
+        loadAndRender();
+      });
+      validCheckbox?.addEventListener('change', (e) => {
+        showValid = (e.target as HTMLInputElement).checked;
+        loadAndRender();
+      });
+    }
+
+    await loadAndRender();
+  }
+
+  async function loadAndRender() {
+    try {
+      // Fetch color results
+      const colorResults = await fetchAllColorResults();
+      allColorResults.clear();
+      colorResults.forEach(r => allColorResults.set(r.image_id, r));
+
+      // Fetch all images
+      let images: ImgItem[] = [];
+      try {
+        const cached = sessionStorage.getItem('cf_images_v3');
+        if (cached) {
+          images = JSON.parse(cached);
+        }
+      } catch {}
+
+      if (!images || images.length === 0) {
+        const res = await fetch(`/api/images?ts=${Date.now()}`, { cache: 'no-store' as RequestCache });
+        if (!res.ok) throw new Error('Failed to load images');
+        const data: any = await res.json();
+        images = (data && Array.isArray(data.images)) ? data.images : [];
+        try {
+          sessionStorage.setItem('cf_images_v3', JSON.stringify(images));
+        } catch {}
+      }
+
+      // Filter to only images with color results and attach color data
+      const imagesWithColor = images
+        .filter(img => allColorResults.has(img.id))
+        .map(img => ({
+          ...img,
+          colorData: allColorResults.get(img.id)
+        }));
+
+      renderColorGallery(imagesWithColor);
+    } catch (error) {
+      console.error('Error loading color debug:', error);
+      const statsEl = document.getElementById('stats');
+      if (statsEl) {
+        statsEl.innerHTML = '<span style="color: rgba(255,100,100,0.8);">Error loading color analysis results</span>';
+      }
+    }
+  }
+
+  // Wait for page to be ready, then initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initColorDebug);
+  } else {
+    initColorDebug();
+  }
+</script>

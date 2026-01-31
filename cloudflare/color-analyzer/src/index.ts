@@ -1,4 +1,5 @@
 export interface Env {
+  AI: Ai;
   COLOR_TOKEN: string;
   CLASSIFIER_DB: D1Database;
   CF_ACCOUNT_ID: string;
@@ -30,95 +31,120 @@ function colorDistance(rgb1: number[], rgb2: number[]): number {
   return Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
 }
 
-// Extract dominant colors using simple sampling and clustering
-async function analyzeImageColors(imageUrl: string): Promise<Record<ColorName, number>> {
-  // Fetch the image
-  const res = await fetch(imageUrl, { cf: { cacheEverything: false } } as RequestInit);
-  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
-  
-  const blob = await res.blob();
-  const arrayBuffer = await blob.arrayBuffer();
-  
-  // For Workers, we'll use a simple approach: decode image and sample pixels
-  // Note: This is a simplified version. For production, you might want to use
-  // a proper image processing library or external API
-  
-  // Sample pixels from the image
-  const pixels = await extractPixelSamples(arrayBuffer);
-  
-  if (pixels.length === 0) {
-    throw new Error('Failed to extract pixels from image - Canvas API may not be available');
-  }
-  
-  // Score against each color
-  const scores: Record<string, number> = {};
+// Extract dominant colors using Workers AI vision model
+async function analyzeImageColors(env: Env, imageUrl: string): Promise<Record<ColorName, number>> {
   const colorNames = Object.keys(COLORS) as ColorName[];
+  const colorList = colorNames.join(", ");
   
-  for (const colorName of colorNames) {
-    const targetRgb = COLORS[colorName];
-    let totalScore = 0;
-    
-    // For each sampled pixel, calculate inverse distance to target color
-    for (const pixel of pixels) {
-      const distance = colorDistance(pixel, targetRgb);
-      // Convert distance to score (0-1), closer = higher score
-      // Max distance in RGB space is sqrt(3 * 255^2) ≈ 441
-      const score = Math.max(0, 1 - (distance / 441));
-      totalScore += score;
-    }
-    
-    // Average score across all pixels
-    scores[colorName] = pixels.length > 0 ? totalScore / pixels.length : 0;
+  // Create a prompt asking the AI to analyze dominant colors
+  const prompt = `Analyze the dominant colors in this image. For each of these color categories, estimate what percentage of the image's visual area is that color: ${colorList}. Return ONLY valid JSON with these exact color names as keys and numeric percentages as decimal values (0 to 1, where 1 = 100%). The values should sum to approximately 1.0. Example format: {"Red": 0.3, "Orange": 0.1, "Yellow": 0.05, "Green": 0.05, "Blue": 0.05, "Purple": 0.05, "Brown": 0.1, "Black": 0.2, "White": 0.05, "Gray": 0.05}`;
+  
+  let raw: any;
+  try {
+    // Try URL input first
+    raw = await (env.AI as any).run("@cf/llava-hf/llava-1.5-7b-hf", { 
+      image: imageUrl, 
+      prompt, 
+      temperature: 0 
+    });
+  } catch (_e) {
+    // Fallback to bytes
+    const res = await fetch(imageUrl, { cf: { cacheEverything: false } } as RequestInit);
+    if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+    const arrayBuffer = await res.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    raw = await (env.AI as any).run("@cf/llava-hf/llava-1.5-7b-hf", { 
+      image: Array.from(bytes), 
+      prompt, 
+      temperature: 0 
+    });
   }
   
-  // Normalize scores to sum to 1
+  const text: string = typeof raw === 'string' ? raw : (raw?.response ?? raw?.text ?? JSON.stringify(raw));
+  
+  // Parse JSON response
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {}
+  
+  // Try to extract JSON from description field
+  if (parsed && typeof parsed === 'object' && typeof parsed.description === 'string') {
+    try { parsed = JSON.parse(parsed.description); } catch { parsed = null; }
+  }
+  
+  // Try to extract first {...} block
+  if (!parsed) {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      const inner = text.slice(start, end + 1);
+      try { parsed = JSON.parse(inner); } catch { parsed = null; }
+    }
+  }
+  
+  // Build scores from parsed response
+  const scores: Record<string, number> = {};
+  for (const colorName of colorNames) {
+    const value = parsed ? parsed[colorName] : undefined;
+    scores[colorName] = typeof value === 'number' ? Math.max(0, Math.min(1, value)) : 0;
+  }
+  
+  // Normalize to sum to 1
   const total = Object.values(scores).reduce((a, b) => a + b, 0);
   const normalized: Record<string, number> = {};
   for (const [color, score] of Object.entries(scores)) {
-    normalized[color] = total > 0 ? score / total : 0;
+    normalized[color] = total > 0 ? score / total : 1 / colorNames.length;
   }
   
   return normalized as Record<ColorName, number>;
 }
 
-// Extract pixel samples from image using Canvas API
+// Extract pixel samples from image by directly parsing image format
 async function extractPixelSamples(arrayBuffer: ArrayBuffer): Promise<number[][]> {
   try {
-    // Create a blob from the array buffer
-    const blob = new Blob([arrayBuffer]);
+    // Try to use Workers' built-in image decoding if available
+    if (typeof createImageBitmap !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
+      const blob = new Blob([arrayBuffer]);
+      const imageBitmap = await createImageBitmap(blob);
+      const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get 2d context');
+      
+      ctx.drawImage(imageBitmap, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      const pixels: number[][] = [];
+      const sampleRate = Math.max(1, Math.floor(data.length / (1000 * 4)));
+      
+      for (let i = 0; i < data.length; i += (4 * sampleRate)) {
+        pixels.push([data[i], data[i + 1], data[i + 2]]);
+      }
+      
+      return pixels;
+    }
     
-    // Create an ImageBitmap from the blob (supported in Workers)
-    const imageBitmap = await createImageBitmap(blob);
-    
-    // Create an offscreen canvas
-    const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Could not get 2d context');
-    
-    // Draw the image
-    ctx.drawImage(imageBitmap, 0, 0);
-    
-    // Get image data
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data; // RGBA array
-    
-    // Sample pixels (every Nth pixel to keep it manageable)
+    // Fallback: Use a simple heuristic based on image bytes
+    // This is a very rough approximation that samples bytes from the image data
+    // In practice, this will pick up some pixel data from JPEG/PNG format
+    const bytes = new Uint8Array(arrayBuffer);
     const pixels: number[][] = [];
-    const sampleRate = Math.max(1, Math.floor(data.length / (1000 * 4))); // Sample ~1000 pixels
     
-    for (let i = 0; i < data.length; i += (4 * sampleRate)) {
-      pixels.push([
-        data[i],     // R
-        data[i + 1], // G
-        data[i + 2]  // B
-        // Skip alpha channel (data[i + 3])
-      ]);
+    // Skip header (first ~500 bytes typically contain metadata)
+    // Sample evenly throughout the rest of the file
+    const start = Math.min(500, Math.floor(bytes.length * 0.1));
+    const sampleCount = 1000;
+    const step = Math.max(3, Math.floor((bytes.length - start) / (sampleCount * 3)));
+    
+    for (let i = start; i < bytes.length - 2 && pixels.length < sampleCount; i += step) {
+      // Take groups of 3 bytes as RGB (rough approximation)
+      pixels.push([bytes[i], bytes[i + 1], bytes[i + 2]]);
     }
     
     return pixels;
   } catch (e) {
     console.error('Error extracting pixels:', e);
-    // Fallback to empty array if decoding fails
     return [];
   }
 }
@@ -245,6 +271,50 @@ export default {
       return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
     }
 
+    if (pathname === "/results" && request.method === "GET") {
+      try {
+        await ensureSchema(env);
+        const cursor = parseInt(url.searchParams.get("cursor") || "0");
+        const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+        const imageId = url.searchParams.get("image_id");
+        const model = url.searchParams.get("model") || "color-analyzer";
+        
+        const clauses: string[] = ["id > ?1"];
+        const binds: any[] = [cursor];
+        if (imageId) { clauses.push("image_id = ?2"); binds.push(imageId); }
+        clauses.push("model = ?" + (binds.length + 1));
+        binds.push(model);
+        
+        const where = "WHERE " + clauses.join(" AND ");
+        const sql = `SELECT id, image_id, image_url, model, model_top_json, computed_at
+                     FROM classifications ${where}
+                     ORDER BY id ASC
+                     LIMIT ?${binds.length + 1}`;
+        binds.push(limit);
+        
+        const stmt = env.CLASSIFIER_DB.prepare(sql);
+        const result = await stmt.bind(...binds).all();
+        const items = (result.results || []).map((r: any) => ({
+          id: r.id,
+          image_id: r.image_id,
+          image_url: r.image_url,
+          model: r.model,
+          model_top: JSON.parse(r.model_top_json || "[]"),
+          computed_at: r.computed_at,
+        }));
+        const nextCursor = items.length ? items[items.length - 1].id : cursor;
+        
+        return new Response(JSON.stringify({ ok: true, items, nextCursor }), {
+          headers: { "content-type": "application/json" }
+        });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
+          status: 500,
+          headers: { "content-type": "application/json" }
+        });
+      }
+    }
+
     if (pathname === "/_test") {
       try {
         const imageUrl = url.searchParams.get("url");
@@ -255,7 +325,7 @@ export default {
           });
         }
         
-        const scores = await analyzeImageColors(imageUrl);
+        const scores = await analyzeImageColors(env, imageUrl);
         return new Response(JSON.stringify({ ok: true, url: imageUrl, scores }), {
           headers: { "content-type": "application/json" }
         });
@@ -263,6 +333,58 @@ export default {
         return new Response(JSON.stringify({ ok: false, error: String(e?.message || e), stack: e?.stack }), {
           status: 500,
           headers: { "content-type": "application/json" }
+        });
+      }
+    }
+
+    if (pathname === "/upload" && request.method === "POST") {
+      try {
+        await ensureSchema(env);
+        
+        const body = await request.json() as any;
+        const { image_id, image_url, colors } = body;
+        
+        if (!image_id || !colors || typeof colors !== 'object') {
+          return new Response(JSON.stringify({ 
+            ok: false, 
+            error: 'Missing required fields: image_id, colors' 
+          }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        // Validate colors object has the right structure
+        const colorNames = ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Brown', 'Black', 'White', 'Gray'];
+        const scores: Record<string, number> = {};
+        
+        for (const colorName of colorNames) {
+          const value = colors[colorName];
+          if (typeof value === 'number' && value >= 0 && value <= 1) {
+            scores[colorName] = value;
+          } else {
+            scores[colorName] = 0;
+          }
+        }
+        
+        const model = 'color-analyzer';
+        await upsertClassification(env, image_id, image_url || '', model, scores as Record<ColorName, number>);
+        
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          image_id,
+          message: 'Color analysis uploaded successfully' 
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ 
+          ok: false, 
+          error: String(err?.message || err) 
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
         });
       }
     }
@@ -301,7 +423,7 @@ export default {
           }
           
           try {
-            const scores = await analyzeImageColors(variantUrl);
+            const scores = await analyzeImageColors(env, variantUrl);
             await upsertClassification(env, img.id, variantUrl, model, scores);
             upserted++;
           } catch (e: any) {

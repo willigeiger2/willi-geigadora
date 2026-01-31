@@ -19,3 +19,6 @@ mode = "smart"
 binding = "CLASSIFIER_DB"
 database_name = "classifier_db"
 database_id = "a4481b88-4c1f-465f-b8d5-253bb94e1d06"
+
+[ai]
+binding = "AI"

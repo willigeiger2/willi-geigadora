@@ -20,20 +20,23 @@ const { heading, text, link } = Astro.props;
 <style>
     a {
         border-radius: 0.5rem;
-        border: 2px;
-        border-color: rgba(160, 160, 160, 0.7);
-        border-style: solid;
+        border: 2px solid rgba(160, 160, 160, 0.7);
         box-sizing: border-box; 
         margin-top: 0;
-        display: inline-block;
+        display: block;
         pointer-events: auto;
+        width: 100%;
+        height: 100%;
     }
 	div {
 		background: linear-gradient(135deg, rgba(255, 255, 255, 0.0), rgba(255, 255, 255, 0.2));
 		transition: background 0.3s ease;
-		padding: 0.01rem 1rem;
+		padding: 1rem;
 		border-radius: 0.5rem;
 		box-sizing: border-box;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
 	}
 	a:hover div {
 		background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.4));
