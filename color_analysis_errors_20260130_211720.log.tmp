@@ -1,0 +1,23 @@
+/Users/willi/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Traceback (most recent call last):
+  File "/Users/willi/src/personal/willi-geigadora/analyze_colors_local.py", line 14, in <module>
+    import numpy as np
+  File "/Users/willi/Library/Python/3.9/lib/python/site-packages/numpy/__init__.py", line 114, in <module>
+    from numpy.__config__ import show as show_config
+  File "/Users/willi/Library/Python/3.9/lib/python/site-packages/numpy/__config__.py", line 4, in <module>
+    from numpy._core._multiarray_umath import (
+  File "/Users/willi/Library/Python/3.9/lib/python/site-packages/numpy/_core/__init__.py", line 23, in <module>
+    from . import multiarray
+  File "/Users/willi/Library/Python/3.9/lib/python/site-packages/numpy/_core/multiarray.py", line 10, in <module>
+    from . import overrides
+  File "<frozen importlib._bootstrap>", line 1007, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 986, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 666, in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 571, in module_from_spec
+  File "<frozen importlib._bootstrap>", line 550, in _init_module_attrs
+  File "<frozen importlib._bootstrap>", line 391, in cached
+  File "<frozen importlib._bootstrap_external>", line 494, in _get_cached
+  File "<frozen importlib._bootstrap_external>", line 387, in cache_from_source
+  File "<frozen importlib._bootstrap_external>", line 132, in _path_split
+KeyboardInterrupt

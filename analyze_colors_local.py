@@ -17,16 +17,17 @@ import colorsys
 # Color definitions in HSV (Hue 0-360, Saturation 0-1, Value 0-1)
 # Hue values: Red=0, Orange=30, Yellow=60, Green=120, Blue=240, Purple=280
 COLORS_HSV = {
-    'Red': {'hue_center': 0, 'hue_range': 30},  # 345-15 degrees
-    'Orange': {'hue_center': 30, 'hue_range': 25},  # 5-55 degrees  
-    'Yellow': {'hue_center': 55, 'hue_range': 25},  # 30-80 degrees
-    'Green': {'hue_center': 120, 'hue_range': 60},  # 60-180 degrees
-    'Blue': {'hue_center': 220, 'hue_range': 50},  # 170-270 degrees
-    'Purple': {'hue_center': 290, 'hue_range': 40},  # 250-330 degrees
-    'Brown': {'hue_center': 25, 'hue_range': 20},  # 5-45 degrees, low saturation, low value
+    'Red': {'hue_center': 0, 'hue_range': 20},  # 345-15 degrees
+    'Orange': {'hue_center': 20, 'hue_range': 20},  # 30-50 degrees  
+    'Yellow': {'hue_center': 50, 'hue_range': 30},  # 40-80 degrees
+    'Green': {'hue_center': 115, 'hue_range': 140},  # 70-170 degrees
+    'Blue': {'hue_center': 220, 'hue_range': 100},  # 170-270 degrees
+    'Purple': {'hue_center': 290, 'hue_range': 60},  # 260-320 degrees
+    'Brown': {'hue_center': 25, 'hue_range': 40},  # 5-45 degrees, low saturation, low value
     'Black': {'value_max': 0.2},  # Low value (darkness)
     'White': {'saturation_max': 0.2, 'value_min': 0.8},  # Low saturation, high value
     'Gray': {'saturation_max': 0.2, 'value_min': 0.2, 'value_max': 0.8},  # Low saturation, mid value
+    'Pink': {'hue_center': 310, 'hue_range': 100},  # Low saturation, mid value
 }
 
 def rgb_to_hsv(rgb):
@@ -81,16 +82,37 @@ def score_color_match(hsv, color_name, color_def):
             return 0
         
         # Brown needs moderate saturation and low-medium value
-        if s < 0.2 or s > 0.7 or v < 0.2 or v > 0.6:
+        if s < 0.2 or s > 0.7 or v < 0.2 or v > 0.7:
             return 0
         
         hue_score = 1.0 - (hue_diff / hue_range)
-        # Favor s=0.4, v=0.4
-        sat_score = 1.0 - abs(s - 0.45) / 0.45
-        val_score = 1.0 - abs(v - 0.4) / 0.4
+        # Favor s=0.5, v=0.5
+        sat_score = 1.0 - abs(s - 0.5) / 0.5
+        val_score = 1.0 - abs(v - 0.5) / 0.5
         
         return hue_score * sat_score * val_score
-    
+
+    elif color_name == 'Pink':
+        # Pink: red hue, lower saturation
+        hue_center = color_def['hue_center']
+        hue_range = color_def['hue_range']
+        hue_diff = hue_distance(h, hue_center)
+        
+        # Outside hue range
+        if hue_diff > hue_range:
+            return 0
+        
+        # Pink needs high-medium value
+        if s < 0.2 or v < 0.4:
+            return 0
+         
+        hue_score = 1.0 - (hue_diff / hue_range)
+        # Favor s=0.6, v=1.0
+        sat_score = 1.0 - abs(s - 0.6) / 0.6
+        val_score = (v - 0.4) / 0.6
+        
+        return hue_score * sat_score * val_score
+
     else:
         # Chromatic colors: check hue range, require minimum saturation
         hue_center = color_def['hue_center']
@@ -102,7 +124,7 @@ def score_color_match(hsv, color_name, color_def):
             return 0
         
         # Too desaturated or too dark
-        if s < 0.2 or v < 0.15:
+        if s < 0.2 or v < 0.1:
             return 0
         
         # Score based on hue match, saturation, and value
@@ -112,7 +134,7 @@ def score_color_match(hsv, color_name, color_def):
         sat_score = (s - 0.2) / 0.8 if s > 0.2 else 0
         
         # Favor mid-high values
-        val_score = min(v / 0.4, 1.0) if v < 0.4 else 1.0
+        val_score = 1.0#min(v / 0.1, 1.0) if v < 0.1 else 1.0
         
         return hue_score * sat_score * val_score
 
